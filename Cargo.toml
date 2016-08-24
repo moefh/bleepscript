@@ -1,4 +1,4 @@
 [package]
-name = "bleep"
+name = "bleepscript"
 version = "0.0.1"
 authors = [ "Ricardo Massaro <ricardo.massaro@gmail.com>" ]
