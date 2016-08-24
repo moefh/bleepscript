@@ -19,15 +19,13 @@ pub enum Expression {
 pub struct FuncCall {
     pub func : Box<Expression>,
     pub args : Vec<Expression>,
-    loc : SrcLoc,
 }
 
 impl FuncCall {
-    pub fn new(loc : SrcLoc, func : Box<Expression>, args : Vec<Expression>) -> FuncCall {
+    pub fn new(func : Box<Expression>, args : Vec<Expression>) -> FuncCall {
         FuncCall {
             func : func,
             args : args,
-            loc : loc,
         }
     }
 }
@@ -39,7 +37,7 @@ pub struct BinaryOp {
     pub op : Rc<String>,
     pub left : Box<Expression>,
     pub right : Box<Expression>,
-    loc : SrcLoc,
+    _loc : SrcLoc,
 }
 
 impl BinaryOp {
@@ -48,7 +46,7 @@ impl BinaryOp {
             op : op,
             left : left,
             right : right,
-            loc : loc,
+            _loc : loc,
         }
     }
 }
@@ -59,7 +57,7 @@ impl BinaryOp {
 pub struct PrefixOp {
     pub op : Rc<String>,
     pub arg : Box<Expression>,
-    loc : SrcLoc,
+    _loc : SrcLoc,
 }
 
 impl PrefixOp {
@@ -67,7 +65,7 @@ impl PrefixOp {
         PrefixOp {
             op : op,
             arg : arg,
-            loc : loc,
+            _loc : loc,
         }
     }
 }

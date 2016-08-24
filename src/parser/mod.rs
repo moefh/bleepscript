@@ -21,9 +21,19 @@ pub struct Parser {
 
 impl Parser {
     pub fn new() -> Parser {
+        let mut ops = ops::OpTable::new();
+        
+        ops.add("+", 70, ops::Assoc::Left);
+        ops.add("-", 70, ops::Assoc::Left);
+        ops.add("*", 80, ops::Assoc::Left);
+        ops.add("/", 80, ops::Assoc::Left);
+        ops.add("^", 90, ops::Assoc::Right);
+
+        ops.add("-", 90, ops::Assoc::Prefix);
+        
         Parser {
             tokens : tokenizer::Tokenizer::new(),
-            ops : ops::OpTable::new(),
+            ops : ops,
         }
     }
 
@@ -44,6 +54,10 @@ impl Parser {
 
     fn unget_token(&mut self, tok : Token) {
         self.tokens.unget_token(tok);
+    }
+    
+    fn unexpected_any(&self, loc : SrcLoc, any : &str, expected : &str) -> ParseError {
+        ParseError::new(loc, &format!("expected {}, found '{}'", expected, any))
     }
     
     fn unexpected_tok(&self, tok : Token, expected : &str) -> ParseError {
@@ -73,7 +87,7 @@ impl Parser {
         }
     }
 
-    // (param [, ...])
+    // ([param [, ...]])
     fn parse_param_list(&mut self) -> Result<Vec<Rc<String>>, ParseError> {
 
         try!(self.expect_punct('('));
@@ -108,9 +122,37 @@ impl Parser {
         }
     }
 
+    // ([expr [, ...]])
+    fn parse_arg_list(&mut self) -> Result<Vec<ast::Expression>, ParseError> {
+
+        let mut exprs = vec![];
+        
+        // check if next is ')'
+        match self.get_token() {
+            Some(Ok(Token::Punct(')', _))) => return Ok(exprs),
+            Some(Ok(tok)) => self.unget_token(tok),
+            Some(Err(e)) => return Err(e),
+            None => return Err(self.unexpected_eof("')' or expression")),
+        }
+        
+        loop {
+            // get next expr
+            exprs.push(try!(self.parse_expr(false, &[',', ')'])));
+            
+            // read ',' or ')' 
+            match self.get_token() {
+                Some(Ok(Token::Punct(',', _))) => {}
+                Some(Ok(Token::Punct(')', _))) => return Ok(exprs),
+                Some(Ok(tok)) => return Err(self.unexpected_tok(tok, "',' or ')'")),
+                Some(Err(e)) => return Err(e),
+                None => return Err(self.unexpected_eof("',' or ')'")),
+            }
+        }
+    }
+
     fn resolve_stack(&mut self, opns : &mut Vec<ast::Expression>, oprs : &mut Vec<(ops::Operator, SrcLoc)>, prec : i32) -> Result<(), ParseError> {
         loop {
-            let assoc = if let Some(&(ref opr, ref loc)) = oprs.last() {
+            let assoc = if let Some(&(ref opr, _)) = oprs.last() {
                 let opr_prec = match opr.assoc {
                     ops::Assoc::Prefix => opr.prec,
                     ops::Assoc::Left => opr.prec,
@@ -152,10 +194,11 @@ impl Parser {
     }
 
     // expression
-    fn parse_expr(&mut self, stop : &[char]) -> Result<ast::Expression, ParseError> {
+    fn parse_expr(&mut self, consume_stop : bool, stop : &[char]) -> Result<ast::Expression, ParseError> {
         
         let mut opns = vec![];
         let mut oprs = vec![];
+        let mut expect_opn = true;
         
         loop {
             match self.get_token() {
@@ -163,17 +206,90 @@ impl Parser {
                     try!(self.resolve_stack(&mut opns, &mut oprs, std::i32::MAX));
                     match opns.len() {
                         0 => return Err(ParseError::new(loc.clone(), "expected expression")),
-                        1 => return Ok(opns.pop().unwrap()),
+                        1 => {
+                            if ! consume_stop {
+                                self.unget_token(Token::Punct(*ch, loc.clone()));
+                            }
+                            return Ok(opns.pop().unwrap());
+                        }
                         _ => return Err(ParseError::new(loc.clone(), "syntax error (stack not empty!)")),
                     }
                 }
                 
-                Some(Ok(Token::Punct('(', _))) => opns.push(try!(self.parse_expr(&[')']))),
-                Some(Ok(Token::Ident(name, loc))) => opns.push(ast::Expression::Ident(name, loc)),
-                Some(Ok(Token::String(str, loc))) => opns.push(ast::Expression::String(str, loc)),
-                Some(Ok(Token::Number(n, loc))) => opns.push(ast::Expression::Number(n, loc)),
+                Some(Ok(Token::Punct('(', loc))) => {
+                    if expect_opn {
+                        opns.push(try!(self.parse_expr(true, &[')'])));
+                    } else {
+                        match opns.pop() {
+                            Some(func) => opns.push(ast::Expression::FuncCall(ast::FuncCall::new(Box::new(func), try!(self.parse_arg_list())))),
+                            None => return Err(ParseError::new(loc, "syntax error (no function on stack!)")),
+                        }
+                    }
+                }
+
+                Some(Ok(Token::Punct('[', loc))) => {
+                    if expect_opn {
+                        return Err(ParseError::new(loc, "TODO: parse array literal"));
+                    } else {
+                        return Err(ParseError::new(loc, "TODO: parse array index"));
+                    }
+                }
+                
+                Some(Ok(Token::Operator(op, loc))) => {
+                    if expect_opn {
+                        match self.ops.get_prefix(&op) {
+                            Some(_op) => {
+                                return return Err(ParseError::new(loc, "TODO: parse prefix operator"));
+                            },
+                            None => return Err(self.unexpected_any(loc, &*op, "expression")),
+                        }
+                    }
+
+                    if ! expect_opn {
+                        match self.ops.get_binary(&op) {
+                            Some(_op) => {
+                                return Err(ParseError::new(loc, "TODO: parse binary operator"));
+                            },
+                            None => return Err(self.unexpected_any(loc, &*op, "'(' or operator")),
+                        }
+                    }
+                    
+                }
+                
+                Some(Ok(Token::Ident(name, loc))) => {
+                    if expect_opn {
+                        opns.push(ast::Expression::Ident(name, loc));
+                        expect_opn = false;
+                    } else {
+                        return Err(self.unexpected_any(loc, &*name, "'(' or operator"));
+                    }
+                }
+                Some(Ok(Token::String(str, loc))) => {
+                    if expect_opn {
+                        opns.push(ast::Expression::String(str, loc));
+                        expect_opn = false;
+                    } else {
+                        return Err(self.unexpected_any(loc, &*str, "'(' or operator"));
+                    }
+                }
+                
+                Some(Ok(Token::Number(n, loc))) => {
+                    if expect_opn {
+                        opns.push(ast::Expression::Number(n, loc));
+                        expect_opn = false;
+                    } else {
+                        // function call
+                        return Err(ParseError::new(loc, "parsing function call"));
+                    }
+                }
+                
                 Some(Ok(Token::Keyword(token::Keyword::Function, loc))) => {
-                    opns.push(ast::Expression::FuncDef(try!(self.parse_func_def(loc))))
+                    if expect_opn {
+                        opns.push(ast::Expression::FuncDef(try!(self.parse_func_def(loc))))
+                    } else {
+                        // function call
+                        return Err(self.unexpected_any(loc, "function", "'(' or operator"));
+                    }
                 }
 
                 Some(Ok(tok)) => return Err(self.unexpected_tok(tok, "expression")),
@@ -181,8 +297,6 @@ impl Parser {
                 None => return Err(self.unexpected_eof("expression")),
             }
         }
-
-        Ok(ast::Expression::Number(0f64, self.src_loc()))
     }
 
     // { ... }
@@ -201,7 +315,7 @@ impl Parser {
                 
                 Some(Ok(tok)) => {
                     self.unget_token(tok);
-                    stmts.push(ast::Statement::Expression(try!(self.parse_expr(&[';']))));
+                    stmts.push(ast::Statement::Expression(try!(self.parse_expr(true, &[';']))));
                 }
                 
                 Some(Err(e)) => return Err(e),

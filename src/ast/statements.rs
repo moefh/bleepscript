@@ -12,14 +12,14 @@ pub enum Statement {
 // Block
 pub struct Block {
     pub stmts : Vec<Statement>,
-    loc : SrcLoc,
+    _loc : SrcLoc,
 }
 
 impl Block {
     pub fn new(loc : SrcLoc, stmts : Vec<Statement>) -> Block {
         Block {
             stmts : stmts,
-            loc : loc,
+            _loc : loc,
         }
     }
 }
@@ -30,7 +30,7 @@ impl Block {
 pub struct FuncDef {
     pub params : Vec<Rc<String>>,
     pub block : Box<Block>,
-    loc : SrcLoc,
+    _loc : SrcLoc,
 }
 
 impl FuncDef {
@@ -38,7 +38,7 @@ impl FuncDef {
         FuncDef {
             params : params,
             block : block,
-            loc : loc,
+            _loc : loc,
         }
     }
 }
