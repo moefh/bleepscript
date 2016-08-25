@@ -7,6 +7,7 @@ mod errors;
 
 use std;
 use std::rc::Rc;
+use std::path;
 
 pub use self::errors::ParseError;
 
@@ -366,11 +367,9 @@ impl Parser {
         self.tokens.add_input(&*filename, Some(loc))
     }
     
-    pub fn parse(&mut self, filename : &str) -> Result<Vec<ast::NamedFuncDef>, ParseError> {
+    fn parse_script(&mut self) -> Result<Vec<ast::NamedFuncDef>, ParseError> {
         let mut funcs = vec![];
         
-        self.tokens.reset();
-        try!(self.tokens.add_input(filename, None));
         while let Some(tok) = self.get_token() {
             match try!(tok) {
                 Token::Keyword(Keyword::Include, _) => try!(self.parse_include()),
@@ -381,6 +380,20 @@ impl Parser {
         }
         
         Ok(funcs)
+    }
+    
+    pub fn parse<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<Vec<ast::NamedFuncDef>, ParseError> {
+        self.tokens.reset();
+
+        let path = filename.as_ref();
+
+        self.tokens.set_base_dir(path.parent());
+        match path.file_name() {
+            Some(file) => try!(self.tokens.add_input(file, None)),
+            None => return Err(ParseError::new(self.src_loc(), &format!("'{:?}' doesn't specify a file", path))),
+        };
+
+        self.parse_script()
     }
 }
 

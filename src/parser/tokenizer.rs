@@ -1,6 +1,7 @@
 
 use std::io;
 use std::fs;
+use std::path;
 use std::rc::Rc;
 
 use super::token::{Token, Keyword};
@@ -17,6 +18,7 @@ struct TokenizerInput<Buf : io::BufRead> {
 
 pub struct Tokenizer {
     inputs : Vec<TokenizerInput<io::BufReader<fs::File>>>,
+    base_dir : Option<path::PathBuf>,
     saved : Option<Token>,
     eof : bool,
     no_loc : SrcLoc,
@@ -26,6 +28,7 @@ impl Tokenizer {
     pub fn new() -> Tokenizer {
         Tokenizer {
             inputs : vec![],
+            base_dir : None,
             saved : None,
             eof : false,
             no_loc : SrcLoc::new("(no file)", 0, 0),
@@ -45,21 +48,35 @@ impl Tokenizer {
         }
     }
 
-    pub fn add_input(&mut self, filename : &str, loc : Option<SrcLoc>) -> Result<(), ParseError> {
-        let loc = if let Some(l) = loc {
-            l
-        } else {
-            self.no_loc.clone()
+    pub fn set_base_dir<P: AsRef<path::Path>>(&mut self, dir : Option<P>) {
+        match dir {
+            Some(dir) => self.base_dir = Some(path::PathBuf::from(dir.as_ref())),
+            None => self.base_dir = None,
+        }
+        //println!("base set to {:?}", self.base_dir);
+    }
+
+    pub fn add_input<P: AsRef<path::Path>>(&mut self, filename : P, loc : Option<SrcLoc>) -> Result<(), ParseError> {
+        let mut path = path::PathBuf::new();
+        if let Some(ref dir) = self.base_dir {
+            path.push(dir);
         };
+        path.push(filename);
         
-        let file = match fs::File::open(filename) {
-            Err(e) => return Err(ParseError::from_io(loc, e)),
+        let file = match fs::File::open(&path) {
             Ok(f) => f,
+            Err(e) => {
+                let loc = match loc {
+                    Some(l) => l,
+                    None => SrcLoc::new(&*path.to_string_lossy(), 0, 0),
+                };
+                return Err(ParseError::from_io(loc, e))
+            }
         };
         
         let input = TokenizerInput {
             chars : CharReader::new(io::BufReader::new(file)),
-            loc : SrcLoc::new(filename, 0, 0),
+            loc : SrcLoc::new(&*path.to_string_lossy(), 0, 0),
         };
         self.inputs.push(input);
         Ok(())

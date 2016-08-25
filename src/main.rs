@@ -8,7 +8,7 @@ use self::parser::Parser;
 fn main() {
 
     let mut parser = Parser::new();
-    match parser.parse("main.tst") {
+    match parser.parse("scripts/main.tst") {
         Ok(funcs) => {
             for func in funcs {
                 println!("{:?}", func);
