@@ -8,10 +8,12 @@ Example code:
 
     function main(args) {
         print("Hello, world!\n");
-        f = function(x) {
+        test();
+    }
+
+    function test() {
+        var f = function(x) {
             print("Hello, ", x, " from anonymous function \n");
         };
         f("world");
     }
-
-
