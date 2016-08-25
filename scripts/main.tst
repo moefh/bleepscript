@@ -10,7 +10,7 @@ function main(args) {
     
     {{}}
     
-    x = function(a,b) { printf("x\n"); }(1,2);
+    var x = function(a,b) { printf("x\n"); };
     
     {
         printf("another block\n");

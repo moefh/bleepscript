@@ -2,3 +2,11 @@
 name = "bleepscript"
 version = "0.0.1"
 authors = [ "Ricardo Massaro <ricardo.massaro@gmail.com>" ]
+
+[lib]
+name = "bleepscript"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bleep"
+path = "src/main.rs"

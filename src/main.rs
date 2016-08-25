@@ -1,9 +1,6 @@
-pub mod parser;
-mod ast;
-mod src_loc;
+extern crate bleepscript;
 
-pub use self::src_loc::SrcLoc;
-use self::parser::Parser;
+use bleepscript::*;
 
 fn main() {
 

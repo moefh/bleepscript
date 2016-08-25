@@ -5,7 +5,8 @@ use super::Expression;
 
 pub enum Statement {
     Block(Block),
-    Expression(Expression)
+    VarDecl(VarDecl),
+    Expression(Expression),
 }
 
 // =========================================================
@@ -24,13 +25,31 @@ impl Block {
     }
 }
 
+// =========================================================
+// VarDecl
+pub struct VarDecl {
+    pub var : Rc<String>,
+    pub val : Option<Box<Expression>>,
+    _loc : SrcLoc,
+}
+
+impl VarDecl {
+    pub fn new(loc : SrcLoc, var : Rc<String>, val : Option<Box<Expression>>) -> VarDecl {
+        VarDecl {
+            var : var,
+            val : val,
+            _loc : loc,
+        }
+    }
+}
+
 
 // =========================================================
 // FuncDef
 pub struct FuncDef {
     pub params : Vec<Rc<String>>,
     pub block : Box<Block>,
-    _loc : SrcLoc,
+    pub loc : SrcLoc,
 }
 
 impl FuncDef {
@@ -38,7 +57,7 @@ impl FuncDef {
         FuncDef {
             params : params,
             block : block,
-            _loc : loc,
+            loc : loc,
         }
     }
 }

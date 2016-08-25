@@ -21,6 +21,17 @@ impl DebugIndent for FuncDef {
     }
 }
 
+impl DebugIndent for VarDecl {
+    fn fmt(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "var {}", self.var));
+        if let Some(ref val) = self.val {
+            try!(write!(f, " = "));
+            try!(val.fmt(f, indent));
+        }
+        write!(f, ";")
+    }
+}
+
 impl DebugIndent for Expression {
     fn fmt(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         match *self {
@@ -63,7 +74,11 @@ impl DebugIndent for Statement {
     fn fmt(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         match *self {
             Statement::Block(ref b)        => b.fmt(f, indent),
-            Statement::Expression(ref e)   => e.fmt(f, indent),
+            Statement::VarDecl(ref v)      => v.fmt(f, indent),
+            Statement::Expression(ref e)   => {
+                try!(e.fmt(f, indent));
+                write!(f, ";")
+            },
         }
     }
 }
@@ -74,7 +89,7 @@ impl DebugIndent for Block {
         for s in &self.stmts {
             try!(write!(f, "{1:0$}", indent + 2, ""));
             try!(s.fmt(f, indent + 2));
-            try!(writeln!(f, ";"));
+            try!(writeln!(f, ""));
         }
         write!(f, "{1:0$}}}", indent, "")
     }

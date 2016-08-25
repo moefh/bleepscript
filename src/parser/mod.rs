@@ -172,6 +172,36 @@ impl Parser {
         }
     }
 
+    // var ident[ = expr];
+    fn parse_var_decl(&mut self) -> Result<ast::VarDecl, ParseError> {
+
+        let (ident, loc) = match self.get_token() {
+            Some(Ok(Token::Ident(ident, loc))) => (ident, loc),
+            Some(Ok(tok)) => return Err(self.unexpected_tok(tok, "identifier")),
+            Some(Err(e)) => return Err(e),
+            None => return Err(self.unexpected_eof("identifier")),
+        };
+        
+        // check for '=' 
+        let expr = match self.get_token() {
+            Some(Ok(Token::Operator(op, loc))) => {
+                if *op == "=" {
+                    Some(Box::new(try!(self.parse_expr(true, &[';']))))
+                } else {
+                    return Err(self.unexpected_any(loc, &*op, "'=' or ';'"));
+                }
+            }
+            
+            Some(Ok(Token::Punct(';', _))) => None,
+            
+            Some(Ok(tok)) => return Err(self.unexpected_tok(tok, "'=' or ';'")),
+            Some(Err(e)) => return Err(e),
+            None => return Err(self.unexpected_eof("'=' or ';'")),
+        };
+        
+        Ok(ast::VarDecl::new(loc, ident, expr))
+    }
+
     fn resolve_stack(&mut self, opns : &mut Vec<ast::Expression>, oprs : &mut Vec<(ops::Operator, SrcLoc)>, prec : i32) -> Result<(), ParseError> {
         loop {
             let assoc = if let Some(&(ref opr, _)) = oprs.last() {
@@ -333,6 +363,10 @@ impl Parser {
                 Some(Ok(tok @ Token::Punct('{', _))) => {
                     self.unget_token(tok);
                     stmts.push(ast::Statement::Block(try!(self.parse_block())));
+                },
+
+                Some(Ok(Token::Keyword(Keyword::Var, _))) => {
+                    stmts.push(ast::Statement::VarDecl(try!(self.parse_var_decl())));
                 },
                 
                 Some(Ok(tok)) => {
