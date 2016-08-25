@@ -17,25 +17,46 @@ use super::ast;
 
 pub struct Parser {
     tokens : tokenizer::Tokenizer,
-    ops : ops::OpTable,
 }
 
 impl Parser {
     pub fn new() -> Parser {
-        let mut ops = ops::OpTable::new();
-        
-        ops.add("+",  70, ops::Assoc::Left);
-        ops.add("-",  70, ops::Assoc::Left);
-        ops.add("*",  80, ops::Assoc::Left);
-        ops.add("/",  80, ops::Assoc::Left);
-        ops.add("^", 100, ops::Assoc::Right);
-
-        ops.add("-",  90, ops::Assoc::Prefix);
-        
         Parser {
             tokens : tokenizer::Tokenizer::new(),
-            ops : ops,
         }
+    }
+    
+    pub fn load_basic_ops(&mut self) {
+        self.add_op("=",   10, ops::Assoc::Right);
+        
+        self.add_op("||",  20, ops::Assoc::Left);
+        self.add_op("&&",  30, ops::Assoc::Left);
+
+        self.add_op("==",  40, ops::Assoc::Right);
+        self.add_op("!=",  40, ops::Assoc::Right);
+        self.add_op("<",   50, ops::Assoc::Left);
+        self.add_op(">",   50, ops::Assoc::Left);
+        self.add_op("<=",  50, ops::Assoc::Left);
+        self.add_op(">=",  50, ops::Assoc::Left);
+
+        self.add_op("+",   60, ops::Assoc::Left);
+        self.add_op("-",   60, ops::Assoc::Left);
+        self.add_op("*",   70, ops::Assoc::Left);
+        self.add_op("/",   70, ops::Assoc::Left);
+        self.add_op("&",   70, ops::Assoc::Left);
+
+        self.add_op("-",   80, ops::Assoc::Prefix);
+        self.add_op("!",   80, ops::Assoc::Prefix);
+
+        self.add_op("^",   90, ops::Assoc::Right);
+    }
+
+    pub fn add_op(&mut self, name : &str, prec : i32, assoc : ops::Assoc) {
+        self.tokens.ops().add(name, prec, assoc);
+    }
+
+    fn ops(&mut self) -> &mut ops::OpTable {
+        self.tokens.ops()
     }
 
     fn src_loc(&self) -> SrcLoc {
@@ -238,15 +259,12 @@ impl Parser {
                 
                 Some(Ok(Token::Operator(op, loc))) => {
                     if expect_opn {
-                        match self.ops.get_prefix(&op) {
-                            Some(op) => {
-                                try!(self.resolve_stack(&mut opns, &mut oprs, op.prec));
-                                oprs.push((op, loc));
-                            },
+                        match self.ops().get_prefix(&op) {
+                            Some(op) => oprs.push((op, loc)),
                             None => return Err(self.unexpected_any(loc, &*op, "expression")),
                         }
                     } else {
-                        match self.ops.get_binary(&op) {
+                        match self.ops().get_binary(&op) {
                             Some(op) => {
                                 try!(self.resolve_stack(&mut opns, &mut oprs, op.prec));
                                 oprs.push((op, loc));
@@ -280,16 +298,15 @@ impl Parser {
                         opns.push(ast::Expression::Number(n, loc));
                         expect_opn = false;
                     } else {
-                        // function call
-                        return Err(ParseError::new(loc, "parsing function call"));
+                        return Err(self.unexpected_any(loc, &n.to_string(), "'(' or operator"));
                     }
                 }
                 
                 Some(Ok(Token::Keyword(token::Keyword::Function, loc))) => {
                     if expect_opn {
-                        opns.push(ast::Expression::FuncDef(try!(self.parse_func_def(loc))))
+                        opns.push(ast::Expression::FuncDef(try!(self.parse_func_def(loc))));
+                        expect_opn = false;
                     } else {
-                        // function call
                         return Err(self.unexpected_any(loc, "function", "'(' or operator"));
                     }
                 }
@@ -310,6 +327,9 @@ impl Parser {
         loop {
             match self.get_token() {
                 Some(Ok(Token::Punct('}', _))) => break,
+                
+                Some(Ok(Token::Punct(';', _))) => {},
+                
                 Some(Ok(tok @ Token::Punct('{', _))) => {
                     self.unget_token(tok);
                     stmts.push(ast::Statement::Block(try!(self.parse_block())));
@@ -327,7 +347,6 @@ impl Parser {
         }
             
         Ok(ast::Block::new(block_loc, stmts))
-        //Err(ParseError::new(self.src_loc(), "parsing block"))
     }
 
     // function (...) { ... }

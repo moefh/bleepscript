@@ -5,7 +5,7 @@ use std::path;
 use std::rc::Rc;
 
 use super::token::{Token, Keyword};
-
+use super::ops;
 use super::ParseError;
 use super::super::SrcLoc;
 use super::char_reader::CharReader;
@@ -17,6 +17,7 @@ struct TokenizerInput<Buf : io::BufRead> {
 }
 
 pub struct Tokenizer {
+    ops : ops::OpTable,
     inputs : Vec<TokenizerInput<io::BufReader<fs::File>>>,
     base_dir : Option<path::PathBuf>,
     saved : Option<Token>,
@@ -27,6 +28,7 @@ pub struct Tokenizer {
 impl Tokenizer {
     pub fn new() -> Tokenizer {
         Tokenizer {
+            ops : ops::OpTable::new(),
             inputs : vec![],
             base_dir : None,
             saved : None,
@@ -39,6 +41,10 @@ impl Tokenizer {
         self.inputs = vec![];
         self.saved = None;
         self.eof = false;
+    }
+
+    pub fn ops(&mut self) -> &mut ops::OpTable {
+        &mut self.ops
     }
 
     pub fn src_loc(&self) -> SrcLoc {
@@ -232,7 +238,22 @@ impl Iterator for Tokenizer {
                 _ => {
                     let mut buf = String::new();
                     buf.push(ch);
-                    // TODO: check next chars
+
+                    while let Some(c) = self.getc() {
+                        match c {
+                            Ok(c) => {
+                                buf.push(c);
+                                if ! self.ops.is_operator(&buf) {
+                                    self.ungetc(c);
+                                    buf.pop();
+                                    break;
+                                }
+                            }
+                            
+                            Err(e) => return Some(Err(ParseError::from_io(loc, e))),
+                        }
+                    }
+
                     return Some(Ok(Token::Operator(Rc::new(buf), loc)));
                 }
             }

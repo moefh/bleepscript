@@ -17,8 +17,8 @@ pub struct Operator {
 }
 
 pub struct OpTable {
-    prefix : HashMap<Rc<String>, Operator>,
-    binary : HashMap<Rc<String>, Operator>,
+    prefix : HashMap<String, Operator>,
+    binary : HashMap<String, Operator>,
 }
 
 impl OpTable {
@@ -30,38 +30,37 @@ impl OpTable {
     }
     
     pub fn add(&mut self, name : &str, prec : i32, assoc : Assoc) {
-        let name = Rc::new(name.to_string());
         let op = Operator {
-            name : name.clone(),
+            name : Rc::new(name.to_string()),
             prec : prec,
             assoc : assoc.clone(),
         };
         match assoc {
-            Assoc::Left | Assoc::Right => self.binary.insert(name.clone(), op),
-            Assoc::Prefix => self.prefix.insert(name.clone(), op),
+            Assoc::Left | Assoc::Right => self.binary.insert(name.to_string(), op),
+            Assoc::Prefix => self.prefix.insert(name.to_string(), op),
         };
     }
     
-    pub fn _is_binary(&self, name : &Rc<String>) -> bool {
+    pub fn is_binary(&self, name : &str) -> bool {
         self.binary.contains_key(name)
     }
     
-    pub fn _is_prefix(&self, name : &Rc<String>) -> bool {
+    pub fn is_prefix(&self, name : &str) -> bool {
         self.prefix.contains_key(name)
     }
     
-    pub fn _is_operator(&self, name : &Rc<String>) -> bool {
-        self._is_binary(name) || self._is_prefix(name)
+    pub fn is_operator(&self, name : &str) -> bool {
+        self.is_binary(name) || self.is_prefix(name)
     }
     
-    pub fn get_binary(&self, name : &Rc<String>) -> Option<Operator> {
+    pub fn get_binary(&self, name : &str) -> Option<Operator> {
         match self.binary.get(name) {
             Some(op) => Some(op.clone()),
             None => None,
         }
     }
 
-    pub fn get_prefix(&self, name : &Rc<String>) -> Option<Operator> {
+    pub fn get_prefix(&self, name : &str) -> Option<Operator> {
         match self.prefix.get(name) {
             Some(op) => Some(op.clone()),
             None => None,

@@ -35,7 +35,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),
-            ParseErrorData::IOError(ref err) => write!(f, "{}: {}", self.loc, err),
+            ParseErrorData::IOError(ref err) => write!(f, "{}: {:?}", self.loc, err),
         }
         
     }
