@@ -11,18 +11,21 @@ use std::path;
 pub use self::env::Env;
 pub use self::errors::RunError;
 pub use self::src_loc::SrcLoc;
-pub use self::parser::Parser;
 pub use self::parser::ParseError;
 pub use self::value::Value;
 
+use self::parser::Parser;
+
 pub struct Bleep {
     env : Rc<Env>,
+    funcs : Vec<ast::NamedFuncDef>,
 }
 
 impl Bleep {
     pub fn new() -> Bleep {
         Bleep {
             env : Rc::new(Env::new_global()),
+            funcs : Vec::new(),
         }
     }
     
@@ -36,15 +39,26 @@ impl Bleep {
         self.env.get_value(0, i);
     }
     
-    pub fn parse<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
-
+    pub fn load_script<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
         let mut parser = Parser::new();
         parser.load_basic_ops();
         let funcs = try!(parser.parse(filename));
         for func in funcs {
-            let val = Value::Closure(value::Closure::new(func.def, self.env.clone()));
+            let val = Value::Closure(value::Closure::new(func.def.clone(), self.env.clone()));
             self.set_var(&*func.name, val);
+            self.funcs.push(func);
         }
         Ok(())
     }
+    
+    pub fn dump_env(&self) {
+        print!("{:?}", self.env);
+    }
+
+    pub fn dump_funcs(&self) {
+        for func in &self.funcs {
+            println!("{:?}", func);
+        }
+    }
+    
 }

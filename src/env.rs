@@ -2,6 +2,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 
 use super::{Value, RunError};
 
@@ -84,6 +85,33 @@ impl Env {
         self.vals.borrow_mut().push(Value::Null);
         self.names.borrow_mut().insert(name.to_string(), new_index);
         new_index
+    }
+    
+    fn dump(&self, f : &mut fmt::Formatter, env_index : usize) -> Result<usize, fmt::Error> {
+        let env_index = match self.parent {
+            Some(ref parent) => {
+                let parent_index = try!(parent.dump(f, env_index));
+                try!(writeln!(f, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"));
+                parent_index + 1
+            }
+            None => env_index,
+        };
+        
+        for (i, val) in self.vals.borrow().iter().enumerate() {
+            match self.names.borrow().iter().find(|&(_, index)| *index==i) {
+                Some((name, _)) => try!(writeln!(f, "[{}@{}] {} = {}", i, env_index, name, val)),
+                None => try!(writeln!(f, "[{}@{}] ? = {}", i, env_index, val)),
+            }
+        }
+        
+        Ok(env_index)
+    }
+}
+
+impl fmt::Debug for Env {
+    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        try!(self.dump(f, 0));
+        Ok(())
     }
 }
 

@@ -3,17 +3,10 @@ extern crate bleepscript;
 use bleepscript::*;
 
 fn main() {
-
-    let mut parser = Parser::new();
-    parser.load_basic_ops();
-    match parser.parse("scripts/main.tst") {
-        Ok(funcs) => {
-            for func in funcs {
-                println!("{:?}", func);
-            }
-        }
-        
-        Err(e) => println!("{}", e),
+    let mut bleep = Bleep::new();
+    if let Err(e) = bleep.load_script("scripts/main.tst") {
+        println!("{}", e);
     }
-
+    bleep.dump_funcs();
+    bleep.dump_env();
 }
