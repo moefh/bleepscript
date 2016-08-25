@@ -54,11 +54,17 @@ impl OpTable {
         self._is_binary(name) || self._is_prefix(name)
     }
     
-    pub fn get_binary(&self, name : &Rc<String>) -> Option<&Operator> {
-        self.binary.get(name)
+    pub fn get_binary(&self, name : &Rc<String>) -> Option<Operator> {
+        match self.binary.get(name) {
+            Some(op) => Some(op.clone()),
+            None => None,
+        }
     }
 
-    pub fn get_prefix(&self, name : &Rc<String>) -> Option<&Operator> {
-        self.prefix.get(name)
+    pub fn get_prefix(&self, name : &Rc<String>) -> Option<Operator> {
+        match self.prefix.get(name) {
+            Some(op) => Some(op.clone()),
+            None => None,
+        }
     }
 }

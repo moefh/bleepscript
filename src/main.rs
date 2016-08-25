@@ -11,7 +11,7 @@ fn main() {
     match parser.parse("main.tst") {
         Ok(funcs) => {
             for func in funcs {
-                println!("function {}({:?})", func.name, func.def.params);
+                println!("{:?}", func);
             }
         }
         

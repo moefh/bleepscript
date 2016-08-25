@@ -2,10 +2,10 @@
 include "include.tst"
 
 function main(args) {
-    var x = -1;
-    
-    if (2*x == 3)
-        printf("no way!\n");
-    else
-        printf("whew!\n");
+    printf("%d\n", 1+2);
+    -a^2+b/c*d;
+    a+b*c;
+    a*b*c;
+    a^b^c;
+    a-b*c^d^e;
 }

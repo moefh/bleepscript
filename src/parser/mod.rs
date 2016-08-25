@@ -23,13 +23,13 @@ impl Parser {
     pub fn new() -> Parser {
         let mut ops = ops::OpTable::new();
         
-        ops.add("+", 70, ops::Assoc::Left);
-        ops.add("-", 70, ops::Assoc::Left);
-        ops.add("*", 80, ops::Assoc::Left);
-        ops.add("/", 80, ops::Assoc::Left);
-        ops.add("^", 90, ops::Assoc::Right);
+        ops.add("+",  70, ops::Assoc::Left);
+        ops.add("-",  70, ops::Assoc::Left);
+        ops.add("*",  80, ops::Assoc::Left);
+        ops.add("/",  80, ops::Assoc::Left);
+        ops.add("^", 100, ops::Assoc::Right);
 
-        ops.add("-", 90, ops::Assoc::Prefix);
+        ops.add("-",  90, ops::Assoc::Prefix);
         
         Parser {
             tokens : tokenizer::Tokenizer::new(),
@@ -156,9 +156,9 @@ impl Parser {
                 let opr_prec = match opr.assoc {
                     ops::Assoc::Prefix => opr.prec,
                     ops::Assoc::Left => opr.prec,
-                    ops::Assoc::Right => opr.prec + 1,
+                    ops::Assoc::Right => opr.prec-1,
                 };
-                if opr_prec > prec {
+                if opr_prec < prec {
                     return Ok(());
                 }
                 opr.assoc.clone()
@@ -203,7 +203,7 @@ impl Parser {
         loop {
             match self.get_token() {
                 Some(Ok(Token::Punct(ref ch, ref loc))) if stop.contains(ch) => {
-                    try!(self.resolve_stack(&mut opns, &mut oprs, std::i32::MAX));
+                    try!(self.resolve_stack(&mut opns, &mut oprs, std::i32::MIN));
                     match opns.len() {
                         0 => return Err(ParseError::new(loc.clone(), "expected expression")),
                         1 => {
@@ -238,22 +238,22 @@ impl Parser {
                 Some(Ok(Token::Operator(op, loc))) => {
                     if expect_opn {
                         match self.ops.get_prefix(&op) {
-                            Some(_op) => {
-                                return return Err(ParseError::new(loc, "TODO: parse prefix operator"));
+                            Some(op) => {
+                                try!(self.resolve_stack(&mut opns, &mut oprs, op.prec));
+                                oprs.push((op, loc));
                             },
                             None => return Err(self.unexpected_any(loc, &*op, "expression")),
                         }
-                    }
-
-                    if ! expect_opn {
+                    } else {
                         match self.ops.get_binary(&op) {
-                            Some(_op) => {
-                                return Err(ParseError::new(loc, "TODO: parse binary operator"));
+                            Some(op) => {
+                                try!(self.resolve_stack(&mut opns, &mut oprs, op.prec));
+                                oprs.push((op, loc));
                             },
                             None => return Err(self.unexpected_any(loc, &*op, "'(' or operator")),
                         }
+                        expect_opn = true;
                     }
-                    
                 }
                 
                 Some(Ok(Token::Ident(name, loc))) => {
@@ -264,6 +264,7 @@ impl Parser {
                         return Err(self.unexpected_any(loc, &*name, "'(' or operator"));
                     }
                 }
+                
                 Some(Ok(Token::String(str, loc))) => {
                     if expect_opn {
                         opns.push(ast::Expression::String(str, loc));
