@@ -1,7 +1,13 @@
 
+use std;
 use std::rc::Rc;
 use super::super::SrcLoc;
 use super::Expression;
+
+use super::super::exec;
+use super::super::sym_tab::SymTab;
+use super::super::parser::ParseResult;
+//use super::debug;
 
 pub enum Statement {
     Block(Block),
@@ -9,19 +15,62 @@ pub enum Statement {
     Expression(Expression),
 }
 
+impl Statement {
+    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::Statement> {
+        match *self {
+            Statement::Block(ref b) => Ok(exec::Statement::Block(try!(b.analyze(sym)))),
+            Statement::VarDecl(_) => panic!("trying to analyze variable declaration"),
+            Statement::Expression(ref e) => Ok(exec::Statement::Expression(try!(e.analyze(sym)))),
+        }
+    }
+}
+
 // =========================================================
 // Block
 pub struct Block {
     pub stmts : Vec<Statement>,
-    _loc : SrcLoc,
+    loc : SrcLoc,
 }
 
 impl Block {
     pub fn new(loc : SrcLoc, stmts : Vec<Statement>) -> Block {
         Block {
             stmts : stmts,
-            _loc : loc,
+            loc : loc,
         }
+    }
+
+    pub fn analyze_stmts<'a>(&self, sym : &Rc<SymTab>, iter : &mut std::slice::Iter<'a, Statement>) -> ParseResult<Vec<exec::Statement>> {
+        let mut ret = Vec::new();
+        
+        while let Some(stmt) = iter.next() {
+            match stmt {
+                &Statement::VarDecl(ref decl) => {
+                    let val = match decl.val {
+                        Some(ref e) => Some(Box::new(try!(e.analyze(sym)))),
+                        None => None,
+                    };
+                    let new_sym = Rc::new(SymTab::new(sym.clone(), &[decl.var.clone()]));
+                    let stmts = try!(self.analyze_stmts(&new_sym, iter));
+                    let block = exec::Block::new(decl.loc.clone(), Some((0,0,val)), stmts);
+                    ret.push(exec::Statement::Block(block));
+                    break;
+                }
+                
+                _ => ret.push(try!(stmt.analyze(sym))),
+            }
+        }
+        
+        Ok(ret)
+    }
+
+    // TODO: optimize this
+    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::Block> {
+        //println!("Block::analyze(): {:?}\n", self);
+
+        let mut iter = (&self.stmts).iter();
+        let stmts = try!(self.analyze_stmts(sym, &mut iter));
+        Ok(exec::Block::new(self.loc.clone(), None, stmts))
     }
 }
 
@@ -30,7 +79,7 @@ impl Block {
 pub struct VarDecl {
     pub var : Rc<String>,
     pub val : Option<Box<Expression>>,
-    _loc : SrcLoc,
+    pub loc : SrcLoc,
 }
 
 impl VarDecl {
@@ -38,7 +87,7 @@ impl VarDecl {
         VarDecl {
             var : var,
             val : val,
-            _loc : loc,
+            loc : loc,
         }
     }
 }
@@ -60,6 +109,13 @@ impl FuncDef {
             loc : loc,
         }
     }
+    
+    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::FuncDef> {
+        //println!("FuncDef::analyze(): {:?}\n", self);
+        let new_sym = Rc::new(SymTab::new(sym.clone(), &self.params));
+        let block = try!(self.block.analyze(&new_sym));
+        Ok(exec::FuncDef::new(self.loc.clone(), self.params.len(), Box::new(block))) 
+    }
 }
 
 // =========================================================
@@ -76,4 +132,10 @@ impl NamedFuncDef {
             def : def
         }
     }
+    
+    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::FuncDef> {
+        //println!("NamedFuncDef::analyze(): {:?}\n", self);
+        self.def.analyze(sym)
+    }
+    
 }

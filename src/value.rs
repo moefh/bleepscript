@@ -1,6 +1,6 @@
 use std::fmt;
 use std::rc::Rc;
-use super::ast::FuncDef;
+use super::exec::FuncDef;
 use super::Env;
 
 #[derive(Clone)]

@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::token::{Token, Keyword};
 use super::ops;
-use super::ParseError;
+use super::{ParseResult, ParseError};
 use super::super::SrcLoc;
 use super::char_reader::CharReader;
 
@@ -62,7 +62,7 @@ impl Tokenizer {
         //println!("base set to {:?}", self.base_dir);
     }
 
-    pub fn add_input<P: AsRef<path::Path>>(&mut self, filename : P, loc : Option<SrcLoc>) -> Result<(), ParseError> {
+    pub fn add_input<P: AsRef<path::Path>>(&mut self, filename : P, loc : Option<SrcLoc>) -> ParseResult<()> {
         let mut path = path::PathBuf::new();
         if let Some(ref dir) = self.base_dir {
             path.push(dir);
@@ -130,7 +130,7 @@ impl Tokenizer {
 }
 
 impl Iterator for Tokenizer {
-    type Item = Result<Token, ParseError>;
+    type Item = ParseResult<Token>;
     
     fn next(&mut self) -> Option<Self::Item> {
         

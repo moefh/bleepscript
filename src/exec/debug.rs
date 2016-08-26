@@ -10,58 +10,29 @@ trait DebugIndent {
 impl DebugIndent for FuncDef {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         try!(write!(f, "function ("));
-        for (n, p) in self.params.iter().enumerate() {
+        for n in 0..self.num_params {
             if n > 0 {
                 try!(write!(f, ", "));
             }
-            try!(write!(f, "{}", p));
+            try!(write!(f, "<{}@0>", n));
         }
         try!(write!(f, ") "));
         self.block.fmt_indent(f, indent)
     }
 }
 
-impl DebugIndent for VarDecl {
-    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
-        try!(write!(f, "var {}", self.var));
-        if let Some(ref val) = self.val {
-            try!(write!(f, " = "));
-            try!(val.fmt_indent(f, indent));
-        }
-        write!(f, ";")
-    }
-}
-
 impl DebugIndent for Expression {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         match *self {
-            Expression::Number(n, _)      => write!(f, "{}", n),
-            Expression::String(ref s, _)  => write!(f, "{:?}", **s),
-            Expression::Ident(ref i, _)   => write!(f, "{}", **i),
-            Expression::FuncDef(ref d)    => d.fmt_indent(f, indent),
-            Expression::BinaryOp(ref op)  => op.fmt_indent(f, indent),
-            Expression::PrefixOp(ref op)  => op.fmt_indent(f, indent),
-            Expression::FuncCall(ref c)   => c.fmt_indent(f, indent),
+            Expression::Number(n, _)        => write!(f, "{}", n),
+            Expression::String(ref s, _)    => write!(f, "{:?}", **s),
+            Expression::Variable(vi, ei, _) => write!(f, "<{}@{}>", vi, ei),
+            Expression::FuncDef(ref d)      => d.fmt_indent(f, indent),
+            Expression::Assignment(ref a)   => a.fmt_indent(f, indent),
+            Expression::BinaryOp(ref op)    => op.fmt_indent(f, indent), 
+            Expression::PrefixOp(ref op)    => op.fmt_indent(f, indent),
+            Expression::FuncCall(ref c)     => c.fmt_indent(f, indent),
         }
-    }
-}
-
-impl DebugIndent for BinaryOp {
-    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
-        try!(write!(f, "("));
-        try!(self.left.fmt_indent(f, indent));
-        try!(write!(f, " {} ", *self.op));
-        try!(self.right.fmt_indent(f, indent));
-        write!(f, ")")
-    }
-}
-
-impl DebugIndent for PrefixOp {
-    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
-        try!(write!(f, "("));
-        try!(write!(f, "{}", *self.op));
-        try!(self.arg.fmt_indent(f, indent));
-        write!(f, ")")
     }
 }
 
@@ -79,11 +50,36 @@ impl DebugIndent for FuncCall {
     }
 }
 
+impl DebugIndent for BinaryOp {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "("));
+        try!(self.left.fmt_indent(f, indent));
+        try!(write!(f, " <{}:{}> ", self.val_index, self.env_index));
+        try!(self.right.fmt_indent(f, indent));
+        write!(f, ")")
+    }
+}
+
+impl DebugIndent for PrefixOp {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "("));
+        try!(write!(f, " <{}:{}> ", self.val_index, self.env_index));
+        try!(self.arg.fmt_indent(f, indent));
+        write!(f, ")")
+    }
+}
+
+impl DebugIndent for Assignment {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "<{}@{}> = ", self.var_index, self.env_index));
+        self.val.fmt_indent(f, indent)
+    }
+}
+
 impl DebugIndent for Statement {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         match *self {
             Statement::Block(ref b)        => b.fmt_indent(f, indent),
-            Statement::VarDecl(ref v)      => v.fmt_indent(f, indent),
             Statement::Expression(ref e)   => {
                 try!(e.fmt_indent(f, indent));
                 write!(f, ";")
@@ -95,6 +91,15 @@ impl DebugIndent for Statement {
 impl DebugIndent for Block {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         try!(writeln!(f, "{{"));
+        if let Some((vi, ei, ref val)) = self.var {
+            try!(write!(f, "{1:0$}", indent + 2, ""));
+            try!(write!(f, "var <{}@{}>", vi, ei));
+            if let Some(ref val) = *val {
+                try!(write!(f, " = "));
+                try!((*val).fmt_indent(f, indent + 2));
+            }
+            try!(writeln!(f, ";"));
+        };
         for s in &self.stmts {
             try!(write!(f, "{1:0$}", indent + 2, ""));
             try!(s.fmt_indent(f, indent + 2));
@@ -103,9 +108,6 @@ impl DebugIndent for Block {
         write!(f, "{1:0$}}}", indent, "")
     }
 }
-
-// ================================================
-// fmt::Debug
 
 impl fmt::Debug for FuncCall {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -116,43 +118,5 @@ impl fmt::Debug for FuncCall {
 impl fmt::Debug for FuncDef {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
         self.fmt_indent(f, 0)
-    }
-}
-
-impl fmt::Debug for VarDecl {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.fmt_indent(f, 0)
-    }
-}
-
-impl fmt::Debug for Expression {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.fmt_indent(f, 0)
-    }
-}
-
-impl fmt::Debug for Statement {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.fmt_indent(f, 0)
-    }
-}
-
-impl fmt::Debug for Block {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        self.fmt_indent(f, 0)
-    }
-}
-
-impl fmt::Debug for NamedFuncDef {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        try!(write!(f, "function {}(", self.name));
-        for (n, p) in self.def.params.iter().enumerate() {
-            if n > 0 {
-                try!(write!(f, ", "));
-            }
-            try!(write!(f, "{}", p));
-        }
-        try!(write!(f, ") "));
-        self.def.block.fmt_indent(f, 0)
     }
 }

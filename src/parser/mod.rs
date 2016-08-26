@@ -15,6 +15,8 @@ use super::SrcLoc;
 use self::token::{Token, Keyword};
 use super::ast;
 
+pub type ParseResult<T> = Result<T, ParseError>;
+
 pub struct Parser {
     tokens : tokenizer::Tokenizer,
 }
@@ -63,7 +65,7 @@ impl Parser {
         self.tokens.src_loc()
     }
 
-    fn get_token(&mut self) -> Option<Result<Token, ParseError>> {
+    fn get_token(&mut self) -> Option<ParseResult<Token>> {
         /*
         let tok = self.tokens.next();
         if let Some(Ok(ref tok)) = tok {
@@ -90,7 +92,7 @@ impl Parser {
         ParseError::new(self.src_loc(), &format!("expected {}, found end of file", expected))
     }
 
-    fn expect_punct(&mut self, punct : char) -> Result<SrcLoc, ParseError> {
+    fn expect_punct(&mut self, punct : char) -> ParseResult<SrcLoc> {
         match self.get_token() {
             Some(Ok(Token::Punct(ref p, ref loc))) if *p == punct => Ok(loc.clone()),
             Some(Ok(tok)) => Err(self.unexpected_tok(tok, &format!("'{}'", punct))),
@@ -99,7 +101,7 @@ impl Parser {
         }
     }
     
-    fn _expect_keyword(&mut self, keyword : Keyword) -> Result<SrcLoc, ParseError> {
+    fn _expect_keyword(&mut self, keyword : Keyword) -> ParseResult<SrcLoc> {
         //let loc = self.src_loc();
         match self.get_token() {
             Some(Ok(Token::Keyword(ref k, ref loc))) if *k == keyword => Ok(loc.clone()),
@@ -110,7 +112,7 @@ impl Parser {
     }
 
     // ([param [, ...]])
-    fn parse_param_list(&mut self) -> Result<Vec<Rc<String>>, ParseError> {
+    fn parse_param_list(&mut self) -> ParseResult<Vec<Rc<String>>> {
 
         try!(self.expect_punct('('));
         let mut names = vec![];
@@ -145,7 +147,7 @@ impl Parser {
     }
 
     // ([expr [, ...]])
-    fn parse_arg_list(&mut self) -> Result<Vec<ast::Expression>, ParseError> {
+    fn parse_arg_list(&mut self) -> ParseResult<Vec<ast::Expression>> {
 
         let mut exprs = vec![];
         
@@ -173,7 +175,7 @@ impl Parser {
     }
 
     // var ident[ = expr];
-    fn parse_var_decl(&mut self) -> Result<ast::VarDecl, ParseError> {
+    fn parse_var_decl(&mut self) -> ParseResult<ast::VarDecl> {
 
         let (ident, loc) = match self.get_token() {
             Some(Ok(Token::Ident(ident, loc))) => (ident, loc),
@@ -202,7 +204,7 @@ impl Parser {
         Ok(ast::VarDecl::new(loc, ident, expr))
     }
 
-    fn resolve_stack(&mut self, opns : &mut Vec<ast::Expression>, oprs : &mut Vec<(ops::Operator, SrcLoc)>, prec : i32) -> Result<(), ParseError> {
+    fn resolve_stack(&mut self, opns : &mut Vec<ast::Expression>, oprs : &mut Vec<(ops::Operator, SrcLoc)>, prec : i32) -> ParseResult<()> {
         loop {
             let assoc = if let Some(&(ref opr, _)) = oprs.last() {
                 let opr_prec = match opr.assoc {
@@ -246,7 +248,7 @@ impl Parser {
     }
 
     // expression
-    fn parse_expr(&mut self, consume_stop : bool, stop : &[char]) -> Result<ast::Expression, ParseError> {
+    fn parse_expr(&mut self, consume_stop : bool, stop : &[char]) -> ParseResult<ast::Expression> {
         
         let mut opns = vec![];
         let mut oprs = vec![];
@@ -349,7 +351,7 @@ impl Parser {
     }
 
     // { ... }
-    fn parse_block(&mut self) -> Result<ast::Block, ParseError> {
+    fn parse_block(&mut self) -> ParseResult<ast::Block> {
         let block_loc = try!(self.expect_punct('{'));
         
         let mut stmts = vec![];
@@ -384,7 +386,7 @@ impl Parser {
     }
 
     // function (...) { ... }
-    fn parse_func_def(&mut self, loc : SrcLoc) -> Result<Rc<ast::FuncDef>, ParseError> {
+    fn parse_func_def(&mut self, loc : SrcLoc) -> ParseResult<Rc<ast::FuncDef>> {
 
         let params = try!(self.parse_param_list());
         let block = try!(self.parse_block());
@@ -408,7 +410,7 @@ impl Parser {
     }
     
     // include "filename"
-    fn parse_include(&mut self) -> Result<(), ParseError> {
+    fn parse_include(&mut self) -> ParseResult<()> {
         
         let (filename, loc) = match self.get_token() {
             Some(Ok(Token::String(str, loc))) => (str, loc),
@@ -420,7 +422,7 @@ impl Parser {
         self.tokens.add_input(&*filename, Some(loc))
     }
     
-    fn parse_script(&mut self) -> Result<Vec<ast::NamedFuncDef>, ParseError> {
+    fn parse_script(&mut self) -> ParseResult<Vec<ast::NamedFuncDef>> {
         let mut funcs = vec![];
         
         while let Some(tok) = self.get_token() {
@@ -435,7 +437,7 @@ impl Parser {
         Ok(funcs)
     }
     
-    pub fn parse<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<Vec<ast::NamedFuncDef>, ParseError> {
+    pub fn parse<P: AsRef<path::Path>>(&mut self, filename : P) -> ParseResult<Vec<ast::NamedFuncDef>> {
         self.tokens.reset();
 
         let path = filename.as_ref();
