@@ -91,13 +91,10 @@ impl DebugIndent for Statement {
 impl DebugIndent for Block {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         try!(writeln!(f, "{{"));
-        if let Some((vi, ei, ref val)) = self.var {
+        if let Some(ref val) = self.var {
             try!(write!(f, "{1:0$}", indent + 2, ""));
-            try!(write!(f, "var <{}@{}>", vi, ei));
-            if let Some(ref val) = *val {
-                try!(write!(f, " = "));
-                try!((*val).fmt_indent(f, indent + 2));
-            }
+            try!(write!(f, "var <0@0> = "));
+            try!((*val).fmt_indent(f, indent + 2));
             try!(writeln!(f, ";"));
         };
         for s in &self.stmts {

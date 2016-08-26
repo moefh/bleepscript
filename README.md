@@ -1,8 +1,10 @@
 ## BleepScript
 
-A simple toy scriting language written in Rust, inspired by SICP's [metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
+A simple toy scriting language written in Rust, inspired by SICP's
+[metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
 
-The code is in a very early stage, it only parses a subset of the language and dumps the created AST.
+The code is in an early stage, it only executes a subset of the final language
+(in particular, `if`, `while` and `return` are not implemented yet).
 
 ##Example Code
 
@@ -20,7 +22,11 @@ The code is in a very early stage, it only parses a subset of the language and d
 
 ## Design Limitations
 
-Values refer to other values and the environment via reference counting (using Rust's [Rc&lt;T&gt;](https://doc.rust-lang.org/std/rc/struct.Rc.html)). Because of this, any loops in data structures (including closure references) will cause memory leaks. This may be fixed if/when Rust adds [suport for Garbage Collection](http://manishearth.github.io/blog/2016/08/18/gc-support-in-rust-api-design/).
+Values refer to other values and the environment via reference counting
+(using Rust's [Rc&lt;T&gt;](https://doc.rust-lang.org/std/rc/struct.Rc.html)).
+Because of this, any loops in data structures (including closure references)
+will cause memory leaks. This may be fixed if/when Rust adds [suport for Garbage
+Collection](http://manishearth.github.io/blog/2016/08/18/gc-support-in-rust-api-design/).
 
 ## License
 

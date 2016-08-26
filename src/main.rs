@@ -10,4 +10,10 @@ fn main() {
     }
     bleep.dump_env();
     bleep.dump_funcs();
+    
+    println!("Calling script's function 'main':");
+    match bleep.exec("main", &[Value::Number(42.0)]) {
+        Ok(v) => println!("Script returned '{}'", v),
+        Err(e) => println!("ERROR: {}", e),
+    }    
 }

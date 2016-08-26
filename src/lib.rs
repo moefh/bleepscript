@@ -1,11 +1,12 @@
+mod errors;
 mod parser;
 mod ast;
 mod exec;
 mod src_loc;
 mod env;
 mod sym_tab;
-mod errors;
 mod value;
+mod native;
 
 use std::rc::Rc;
 use std::path;
@@ -15,6 +16,7 @@ pub use self::errors::RunError;
 pub use self::src_loc::SrcLoc;
 pub use self::parser::ParseError;
 pub use self::value::Value;
+pub use self::native::NativeFunc;
 
 use self::sym_tab::SymTab;
 use self::parser::Parser;
@@ -53,13 +55,17 @@ impl Bleep {
     }
 
     pub fn init_env(&mut self) {
-        self.set_var("printf", Value::Null);
-        self.set_var("+", Value::Null);
-        self.set_var("-", Value::Null);
-        self.set_var("*", Value::Null);
-        self.set_var("/", Value::Null);
-        self.set_var("^", Value::Null);
-        self.set_var("!", Value::Null);
+        self.set_var("printf", Value::NativeFunc(Rc::new(native::func_printf)));
+        self.set_var("dump_env", Value::NativeFunc(Rc::new(native::func_dump_env)));
+
+        // TODO: actual operator functions
+        let op = Value::NativeFunc(Rc::new(native::func_generic));
+        self.set_var("+", op.clone());
+        self.set_var("-", op.clone());
+        self.set_var("*", op.clone());
+        self.set_var("/", op.clone());
+        self.set_var("^", op.clone());
+        self.set_var("!", op.clone());
     }
     
     pub fn dump_env(&self) {
@@ -69,10 +75,12 @@ impl Bleep {
     }
 
     pub fn dump_funcs(&self) {
+        println!("--- functions ---------------------------------");
         for func in &self.funcs {
             println!("{:?}", func);
             println!("");
         }
+        println!("-----------------------------------------------");
     }
     
     pub fn load_script<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
@@ -89,11 +97,19 @@ impl Bleep {
         // analyze all functions and add the the executable versions to the environment
         for ast_func in ast_funcs {
             let func = Rc::new(try!(ast_func.analyze(&self.sym_tab)));
-            let val = Value::Closure(value::Closure::new(func.clone(), self.env.clone()));
-            self.set_var(&*ast_func.name, val);
+            let closure = exec::FuncDef::eval(func.clone(), &self.env);
+            self.set_var(&*ast_func.name, closure);
             self.funcs.push(func);
         }
         Ok(())
+    }
+    
+    pub fn exec(&self, func_name : &str, args : &[Value]) -> Result<Value, RunError> {
+        let func = try!(self.get_var(func_name));
+        match func {
+            Value::Closure(ref c) => c.apply(args),
+            _ => Err(RunError::Panic(format!("'{}' is not a function", func_name), None)),
+        }
     }
     
 }

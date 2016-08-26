@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use super::super::SrcLoc;
 use super::FuncDef;
+use super::super::{Value, Env, SrcLoc, RunError};
 
 pub enum Expression {
     Number(f64, SrcLoc),
@@ -14,20 +14,60 @@ pub enum Expression {
     FuncCall(FuncCall),
 }
 
+impl Expression {
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        match *self {
+            Expression::Number(n, _)        => Ok(Value::Number(n)),
+            Expression::String(ref s, _)    => Ok(Value::String(s.clone())),
+            Expression::Variable(vi, ei, _) => Ok(env.get_value(vi, ei)),
+            Expression::FuncDef(ref f)      => Ok(FuncDef::eval(f.clone(), env)),
+            Expression::Assignment(ref a)   => a.eval(env),
+            Expression::BinaryOp(ref op)    => op.eval(env),
+            Expression::PrefixOp(ref op)    => op.eval(env),
+            Expression::FuncCall(ref f)     => f.eval(env),
+        }
+    }
+    
+    pub fn loc(&self) -> SrcLoc {
+        match *self {
+            Expression::Number(_, ref loc) => loc.clone(),
+            Expression::String(_, ref loc) => loc.clone(),
+            Expression::Variable(_, _, ref loc) => loc.clone(),
+            Expression::FuncDef(ref f) => f.loc.clone(),
+            Expression::Assignment(ref a) => a.loc.clone(),
+            Expression::BinaryOp(ref op) => op.loc.clone(),
+            Expression::PrefixOp(ref op) => op.loc.clone(),
+            Expression::FuncCall(ref f) => f.func.loc(),
+        }
+    }
+
+}
+
 // =========================================================
 // FuncCall
 
 pub struct FuncCall {
     pub func : Box<Expression>,
     pub args : Vec<Expression>,
+    loc : SrcLoc,
 }
 
 impl FuncCall {
-    pub fn new(func : Box<Expression>, args : Vec<Expression>) -> FuncCall {
+    pub fn new(loc : SrcLoc, func : Box<Expression>, args : Vec<Expression>) -> FuncCall {
         FuncCall {
             func : func,
             args : args,
+            loc : loc,
         }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let func = try!(self.func.eval(env));
+        let mut args = vec![];
+        for a in &self.args {
+            args.push(try!(a.eval(env)));
+        }
+        func.call(&args, env, &self.loc)
     }
 }
 
@@ -38,7 +78,7 @@ pub struct Assignment {
     pub var_index : usize,
     pub env_index : usize,
     pub val : Box<Expression>,
-    _loc : SrcLoc,
+    loc : SrcLoc,
 }
 
 impl Assignment {
@@ -47,8 +87,14 @@ impl Assignment {
             var_index : var_index,
             env_index : env_index,
             val : val,
-            _loc : loc,
+            loc : loc,
         }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let val = try!(self.val.eval(env));
+        env.set_value(self.var_index, self.env_index, val.clone());
+        Ok(val)
     }
 }
 
@@ -60,7 +106,7 @@ pub struct BinaryOp {
     pub env_index : usize,
     pub left : Box<Expression>,
     pub right : Box<Expression>,
-    _loc : SrcLoc,
+    loc : SrcLoc,
 }
 
 impl BinaryOp {
@@ -70,8 +116,15 @@ impl BinaryOp {
             env_index : env_index,
             left : left,
             right : right,
-            _loc : loc,
+            loc : loc,
         }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let func = env.get_value(self.val_index, self.env_index);
+        let left = try!(self.left.eval(env));
+        let right = try!(self.right.eval(env));
+        func.call(&[left, right], env, &self.loc)
     }
 }
 
@@ -82,7 +135,7 @@ pub struct PrefixOp {
     pub val_index : usize,
     pub env_index : usize,
     pub arg : Box<Expression>,
-    _loc : SrcLoc,
+    loc : SrcLoc,
 }
 
 impl PrefixOp {
@@ -91,8 +144,14 @@ impl PrefixOp {
             val_index : val_index,
             env_index : env_index,
             arg : arg,
-            _loc : loc,
+            loc : loc,
         }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let func = env.get_value(self.val_index, self.env_index);
+        let arg = try!(self.arg.eval(env));
+        func.call(&[arg], env, &self.loc)
     }
 }
 

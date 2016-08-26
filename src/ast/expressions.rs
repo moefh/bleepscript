@@ -99,7 +99,7 @@ impl FuncCall {
             args.push(try!(arg.analyze(sym)));
         }
 
-        Ok(exec::FuncCall::new(Box::new(func), args))
+        Ok(exec::FuncCall::new(func.loc(), Box::new(func), args))
     }
 }
 

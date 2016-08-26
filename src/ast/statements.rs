@@ -52,7 +52,7 @@ impl Block {
                     };
                     let new_sym = Rc::new(SymTab::new(sym.clone(), &[decl.var.clone()]));
                     let stmts = try!(self.analyze_stmts(&new_sym, iter));
-                    let block = exec::Block::new(decl.loc.clone(), Some((0,0,val)), stmts);
+                    let block = exec::Block::new(decl.loc.clone(), val, stmts);
                     ret.push(exec::Statement::Block(block));
                     break;
                 }

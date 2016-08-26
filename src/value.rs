@@ -1,7 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 use super::exec::FuncDef;
-use super::Env;
+use super::{Env, RunError, NativeFunc, SrcLoc};
 
 #[derive(Clone)]
 pub enum Value {
@@ -10,6 +10,17 @@ pub enum Value {
     Number(f64),
     String(Rc<String>),
     Closure(Closure),
+    NativeFunc(Rc<NativeFunc>),
+}
+
+impl Value {
+    pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
+        match *self {
+            Value::Closure(ref c) => c.apply(&args),
+            Value::NativeFunc(ref f) => (**f)(&args, env),
+            ref f => Err(RunError::new_script_exception(&format!("trying to call non-function object '{}'", f), loc.clone()))
+        }
+    }
 }
 
 impl fmt::Display for Value {
@@ -20,6 +31,7 @@ impl fmt::Display for Value {
             &Value::Number(n)       => write!(f, "{}", n),
             &Value::String(ref s)   => write!(f, "{}", s),
             &Value::Closure(ref c)  => write!(f, "{}", c),
+            &Value::NativeFunc(_)   => write!(f, "<native_function>"),
         }
     }
 }
@@ -36,6 +48,11 @@ impl Closure {
             func : func,
             env : env,
         }
+    }
+    
+    pub fn apply(&self, args : &[Value]) -> Result<Value, RunError> {
+        let new_env = Rc::new(Env::new(self.env.clone(), args));
+        self.func.block.eval(&new_env)
     }
 }
 

@@ -18,10 +18,10 @@ impl Env {
         }
     }
     
-    pub fn new(parent : Rc<Env>, size : usize) -> Env {
+    pub fn new(parent : Rc<Env>, vals : &[Value]) -> Env {
         Env {
             parent : Some(parent),
-            vals : RefCell::new(vec![Value::Null; size]),
+            vals : RefCell::new(vals.to_vec()),
         }
     }
     
