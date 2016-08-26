@@ -55,11 +55,11 @@ impl Bleep {
     }
 
     pub fn init_env(&mut self) {
-        self.set_var("printf", Value::NativeFunc(Rc::new(native::func_printf)));
-        self.set_var("dump_env", Value::NativeFunc(Rc::new(native::func_dump_env)));
+        self.set_var("printf", Value::NativeFunc(NativeFunc::new(native::func_printf)));
+        self.set_var("dump_env", Value::NativeFunc(NativeFunc::new(native::func_dump_env)));
 
         // TODO: actual operator functions
-        let op = Value::NativeFunc(Rc::new(native::func_generic));
+        let op = Value::NativeFunc(NativeFunc::new(native::func_generic));
         self.set_var("+", op.clone());
         self.set_var("-", op.clone());
         self.set_var("*", op.clone());

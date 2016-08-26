@@ -30,9 +30,6 @@ impl Env {
     }
     
     pub fn grow(&self) {
-        if self.parent.is_some() {
-            panic!("can't grow non-global environment");
-        }
         self.vals.borrow_mut().push(Value::Null);
     }
     
@@ -40,7 +37,7 @@ impl Env {
         if env_index == 0 {
             let mut vals = self.vals.borrow_mut();
             if val_index >= vals.len() {
-                panic!("Env::set_value() with invalid index: {} >= {}", val_index, vals.len());
+                panic!("Env::set_value() with invalid val_index: {} >= {}", val_index, vals.len());
             }
             vals[val_index] = val;
         } else {
@@ -54,34 +51,30 @@ impl Env {
     
     pub fn get_value(&self, val_index : usize, env_index : usize) -> Value {
         if env_index == 0 {
-            let vals = self.vals.borrow_mut();
+            let vals = self.vals.borrow();
             if val_index >= vals.len() {
-                panic!("Env::get_value() with invalid index: {} >= {}", val_index, vals.len());
+                panic!("Env::get_value() with invalid val_index: {} >= {}", val_index, vals.len());
             }
             vals[val_index].clone()
         } else {
-            match &self.parent {
-                 &Some(ref parent) => parent.get_value(val_index, env_index - 1),
-                 &None => panic!("Env::get_value() with with invalid env_index: reached root with env_index = {}", env_index),
+            match self.parent {
+                 Some(ref parent) => parent.get_value(val_index, env_index - 1),
+                 None => panic!("Env::get_value() with with invalid env_index: reached root with env_index = {}", env_index),
             }
         }
     }
 
-    fn dump(&self, f : &mut fmt::Formatter, env_index : usize) -> Result<usize, fmt::Error> {
-        let env_index = match self.parent {
-            Some(ref parent) => {
-                let parent_index = try!(parent.dump(f, env_index));
-                try!(writeln!(f, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"));
-                parent_index + 1
-            }
-            None => env_index,
+    fn dump(&self, f : &mut fmt::Formatter, env_index : usize) -> Result<(), fmt::Error> {
+        if let Some(ref parent) = self.parent {
+            try!(parent.dump(f, env_index + 1));
+            try!(writeln!(f, "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"));
         };
         
         for (i, val) in self.vals.borrow().iter().enumerate() {
             try!(writeln!(f, "<{}@{}> {}", i, env_index, val));
         }
         
-        Ok(env_index)
+        Ok(())
     }
 }
 

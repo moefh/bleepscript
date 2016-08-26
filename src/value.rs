@@ -10,14 +10,14 @@ pub enum Value {
     Number(f64),
     String(Rc<String>),
     Closure(Closure),
-    NativeFunc(Rc<NativeFunc>),
+    NativeFunc(NativeFunc),
 }
 
 impl Value {
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
             Value::Closure(ref c) => c.apply(&args),
-            Value::NativeFunc(ref f) => (**f)(&args, env),
+            Value::NativeFunc(f) => f.call(&args, env),
             ref f => Err(RunError::new_script_exception(&format!("trying to call non-function object '{}'", f), loc.clone()))
         }
     }
