@@ -358,6 +358,21 @@ impl Parser {
         Ok(ast::WhileStatement::new(while_loc, test, stmt))
     }
 
+    // return [expr];
+    fn parse_return(&mut self, loc : SrcLoc) -> ParseResult<ast::ReturnStatement> {
+        let expr = match self.get_token() {
+            Some(Ok(Token::Punct(';', _))) => None,
+            Some(Ok(tok)) => {
+                self.unget_token(tok);
+                Some(Box::new(try!(self.parse_expr(true, &[';']))))
+            }
+            Some(Err(e)) => return Err(e),
+            None => None,
+        };
+        
+        Ok(ast::ReturnStatement::new(loc, expr))
+    }
+
     // any statement
     fn parse_statement(&mut self) -> ParseResult<ast::Statement> {
         match self.get_token() {
@@ -380,6 +395,14 @@ impl Parser {
                 Ok(ast::Statement::While(try!(self.parse_while())))
             }
             
+            Some(Ok(Token::Keyword(Keyword::Break, loc))) => {
+                Ok(ast::Statement::Break(loc))
+            }
+
+            Some(Ok(Token::Keyword(Keyword::Return, loc))) => {
+                Ok(ast::Statement::Return(try!(self.parse_return(loc))))
+            }
+
             Some(Ok(tok)) => {
                 self.unget_token(tok);
                 Ok(ast::Statement::Expression(try!(self.parse_expr(true, &[';']))))

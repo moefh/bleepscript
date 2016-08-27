@@ -11,7 +11,8 @@ function main(args) {
         printf("x isn't one!\n");
     }
 
-    while (x <= 10) {
+    while (x <= 100) {
+        if (x == 6) break;
         printf("%d\n", x);
         x = x + 1;
     }
@@ -20,5 +21,5 @@ function main(args) {
         x = val;
     };
     set_x(2);
-    printf("x is %d\n", x);
+    printf("x is now %d\n", x);
 }

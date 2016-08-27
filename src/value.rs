@@ -17,11 +17,16 @@ pub enum Value {
 impl Value {
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
-            Value::Closure(ref c) => c.apply(&args),
+            Value::Closure(ref c) => match c.apply(&args) {
+                Err(RunError::Return(v)) => Ok(v),
+                x => x,
+            },
+            
             Value::NativeFunc(f) => match f.call(&args, env) {
                 Err(RunError::NativeException(ref str)) => Err(RunError::new_script(str, loc.clone())),
-                x => x
+                x => x,
             },
+            
             ref f => Err(RunError::new_script(&format!("trying to call non-function object '{}'", f), loc.clone()))
         }
     }

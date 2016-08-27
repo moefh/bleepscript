@@ -82,6 +82,8 @@ impl DebugIndent for Statement {
             Statement::Empty               => write!(f, ";"),
             Statement::If(ref i)           => i.fmt_indent(f, indent),
             Statement::While(ref w)        => w.fmt_indent(f, indent),
+            Statement::Break(_)            => write!(f, "break;"),
+            Statement::Return(ref r)       => r.fmt_indent(f, indent),
             Statement::Block(ref b)        => b.fmt_indent(f, indent),
             Statement::Expression(ref e)   => {
                 try!(e.fmt_indent(f, indent));
@@ -132,6 +134,17 @@ impl DebugIndent for WhileStatement {
         try!(self.test.fmt_indent(f, indent));
         try!(write!(f, ") "));
         self.stmt.fmt_indent(f, indent)
+    }
+}
+
+impl DebugIndent for ReturnStatement {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "return"));
+        match self.expr {
+            Some(ref e) => try!(e.fmt_indent(f, indent)),
+            None => {},
+        }
+        write!(f, ";")
     }
 }
 

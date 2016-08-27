@@ -8,6 +8,8 @@ pub enum RunError {
     Panic(String, Option<SrcLoc>),
     NativeException(String),
     ScriptException(Value, SrcLoc),
+    Break,
+    Return(Value),
 }
 
 impl RunError {
@@ -31,6 +33,8 @@ impl fmt::Display for RunError {
             RunError::Panic(ref s, Some(ref sl)) => write!(f, "{}: {}", sl, s),
             RunError::NativeException(ref s) => write!(f, "{}", s),
             RunError::ScriptException(ref v, ref sl) => write!(f, "{}: {}", sl, v),
+            RunError::Break => write!(f, "break"),
+            RunError::Return(ref v) => write!(f, "return {}", v),
         }
     }    
 }

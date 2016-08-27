@@ -16,6 +16,8 @@ pub enum Statement {
     VarDecl(VarDecl),
     If(IfStatement),
     While(WhileStatement),
+    Break(SrcLoc),
+    Return(ReturnStatement),
 }
 
 impl Statement {
@@ -27,6 +29,8 @@ impl Statement {
             Statement::Block(ref b) => Ok(exec::Statement::Block(try!(b.analyze(sym)))),
             Statement::If(ref i) => Ok(exec::Statement::If(try!(i.analyze(sym)))),
             Statement::While(ref w) => Ok(exec::Statement::While(try!(w.analyze(sym)))),
+            Statement::Break(ref l) => Ok(exec::Statement::Break(l.clone())),
+            Statement::Return(ref r) => Ok(exec::Statement::Return(try!(r.analyze(sym)))),
         }
     }
 }
@@ -132,6 +136,30 @@ impl WhileStatement {
         let test = Box::new(try!(self.test.analyze(sym)));
         let stmt = Box::new(try!(self.stmt.analyze(sym)));
         Ok(exec::WhileStatement::new(self.loc.clone(), test, stmt))
+    }
+}
+
+// =========================================================
+// Return
+pub struct ReturnStatement {
+    pub expr : Option<Box<Expression>>,
+    pub loc : SrcLoc,
+}
+
+impl ReturnStatement {
+    pub fn new(loc : SrcLoc, expr : Option<Box<Expression>>) -> ReturnStatement {
+        ReturnStatement {
+            expr : expr,
+            loc : loc,
+        }
+    }
+
+    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::ReturnStatement> {
+        let expr = match self.expr {
+            Some(ref e) => Some(Box::new(try!(e.analyze(sym)))),
+            None => None,
+        };
+        Ok(exec::ReturnStatement::new(self.loc.clone(), expr))
     }
 }
 

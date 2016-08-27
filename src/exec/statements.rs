@@ -8,6 +8,8 @@ pub enum Statement {
     Empty,
     If(IfStatement),
     While(WhileStatement),
+    Break(SrcLoc),
+    Return(ReturnStatement),
     Block(Block),
     Expression(Expression),
 }
@@ -18,6 +20,8 @@ impl Statement {
             Statement::Empty => Ok(Value::Null),
             Statement::If(ref i) => i.eval(env),
             Statement::While(ref w) => w.eval(env),
+            Statement::Break(_) => Err(RunError::Break),
+            Statement::Return(ref r) => r.eval(env),
             Statement::Block(ref b) => b.eval(env),
             Statement::Expression(ref e) => e.eval(env),
         }
@@ -114,9 +118,36 @@ impl WhileStatement {
 
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
         while try!(self.test.eval(env)).is_true() {
-            try!(self.stmt.eval(env));
+            match self.stmt.eval(env) {
+                Err(RunError::Break) => break,
+                Err(e) => return Err(e),
+                _ => {},
+            }
         }
         Ok(Value::Null)
     }
 }
 
+// =========================================================
+// Return
+pub struct ReturnStatement {
+    pub expr : Option<Box<Expression>>,
+    pub loc : SrcLoc,
+}
+
+impl ReturnStatement {
+    pub fn new(loc : SrcLoc, expr : Option<Box<Expression>>) -> ReturnStatement {
+        ReturnStatement {
+            expr : expr,
+            loc : loc,
+        }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let val = match self.expr {
+            Some(ref e) => try!(e.eval(env)),
+            None => Value::Null,
+        };
+        Err(RunError::Return(val))
+    }
+}
