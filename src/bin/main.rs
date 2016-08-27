@@ -1,3 +1,4 @@
+//extern crate time;
 extern crate bleepscript;
 
 use std::rc::Rc;

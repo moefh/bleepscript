@@ -148,14 +148,23 @@ impl Bleep {
         if index >= self.env.size() {
             self.env.grow();
         }
-        self.env.set_value(index, 0, val);
+        if let Err(e) = self.env.set_value(index, 0, val) {
+            self.dump_env();
+            panic!("Error setting variable: {}", e);
+        }
     }
     
     /// Returns the value of the given global variable, or
     /// `None` if the variable doesn't exist.
     pub fn get_var(&self, var : &str) -> Option<Value> {
         match self.sym_tab.get_name(var) {
-            Some((vi, ei)) => Some(self.env.get_value(vi, ei)),
+            Some((vi, ei)) => {
+                match self.env.get_value(vi, ei) {
+                    Ok(v) => Some(v),
+                    Err(_) => None,
+                }
+            }
+            
             None => None,
         }
     }

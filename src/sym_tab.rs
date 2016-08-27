@@ -57,8 +57,19 @@ impl SymTab {
     pub fn dump_env(&self, env : &Rc<Env>) {
         for index in 0..env.size() {
             match self.names.borrow().iter().find(|&(_, i)| *i == index) {
-                Some((ref name, index)) => println!("<{}:0> {} = {}", index, name, env.get_value(*index, 0)),
-                None => println!("<{}:0> ? = {}", index, env.get_value(index, 0)),
+                Some((name, index)) => {
+                    match env.get_value(*index, 0) {
+                        Ok(v) => println!("<{}:0> {} = {}", index, name, v),
+                        Err(_) => println!("<{}:0> {} = ?", index, name),
+                    }
+                }
+                
+                None => {
+                    match env.get_value(index, 0) {
+                        Ok(v) => println!("<{}:0> ? = {}", index, v),
+                        Err(_) => println!("<{}:0> ? = ?", index),
+                    }
+                }
             }
         }
     }

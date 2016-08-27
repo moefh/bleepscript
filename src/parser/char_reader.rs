@@ -8,7 +8,7 @@ pub struct CharReader<Buf : io::BufRead> {
     col_num_before_newline : u32,
     chars : Option<Vec<char>>,
     pos : usize,
-    saved : Option<char>,
+    saved : Vec<char>,
 }
 
 impl<Buf : io::BufRead> CharReader<Buf> {
@@ -20,16 +20,13 @@ impl<Buf : io::BufRead> CharReader<Buf> {
             col_num_before_newline : 0,
             chars : None,
             pos : 0,
-            saved : None,
+            saved : vec![],
         }
     }
     
     pub fn ungetc(&mut self, ch : char) {
-        if self.saved.is_some() {
-            panic!("ungetch() with full buffer");
-        }
         self.retreat_loc(ch);
-        self.saved = Some(ch);
+        self.saved.push(ch);
     }
     
     pub fn line_num(&self) -> u32 {
@@ -66,7 +63,7 @@ impl<Buf : io::BufRead> Iterator for CharReader<Buf> {
     
     fn next(&mut self) -> Option<Self::Item> {
         
-        if let Some(ch) = self.saved.take() {
+        if let Some(ch) = self.saved.pop() {
             self.advance_loc(ch);
             return Some(Ok(ch));
         }

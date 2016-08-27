@@ -21,7 +21,7 @@ impl Expression {
         match *self {
             Expression::Number(n, _)        => Ok(Value::Number(n)),
             Expression::String(ref s, _)    => Ok(Value::String(s.clone())),
-            Expression::Variable(vi, ei, _) => Ok(env.get_value(vi, ei)),
+            Expression::Variable(vi, ei, _) => env.get_value(vi, ei),
             Expression::FuncDef(ref f)      => Ok(FuncDef::eval(f.clone(), env)),
             Expression::Assignment(ref a)   => a.eval(env),
             Expression::BinaryOp(ref op)    => op.eval(env),
@@ -95,7 +95,7 @@ impl Assignment {
 
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
         let val = try!(self.val.eval(env));
-        env.set_value(self.var_index, self.env_index, val.clone());
+        try!(env.set_value(self.var_index, self.env_index, val.clone()));
         Ok(val)
     }
 }
@@ -123,7 +123,7 @@ impl BinaryOp {
     }
 
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
-        let func = env.get_value(self.val_index, self.env_index);
+        let func = try!(env.get_value(self.val_index, self.env_index));
         let left = try!(self.left.eval(env));
         let right = try!(self.right.eval(env));
         func.call(&[left, right], env, &self.loc)
@@ -151,7 +151,7 @@ impl PrefixOp {
     }
 
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
-        let func = env.get_value(self.val_index, self.env_index);
+        let func = try!(env.get_value(self.val_index, self.env_index));
         let arg = try!(self.arg.eval(env));
         func.call(&[arg], env, &self.loc)
     }

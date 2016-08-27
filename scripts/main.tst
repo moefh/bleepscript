@@ -37,7 +37,8 @@ function main(arg) {
     set_x(2);
     printf("x is now %d\n", x);
 
-    mandelbrot(-2,-2, 2,2, 76,38, 250);
+    #mandelbrot(-2,-2, 2,2, 76,38, 250);
+    mandelbrot(-2,-2, 2,2, 120,60, 2500);
     
     return 42;
 }

@@ -69,8 +69,8 @@ fn num_mod(l:f64, r:f64)->f64 { l - (l/r).trunc() * r }
 
 fn un_arithmetic(args : &[Value], op : fn(f64)->f64, name : &str) -> Result<f64,RunError> {
     let arg = try!(get_arg(args, 0));
-    match arg {
-        &Value::Number(x) => Ok(op(x)),
+    match *arg {
+        Value::Number(x) => Ok(op(x)),
         _ => Err(RunError::new_native(&format!("invalid argument for '{}'", name)))
     }
 }

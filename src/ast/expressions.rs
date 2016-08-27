@@ -20,9 +20,10 @@ pub enum Expression {
 impl Expression {
     pub fn loc(&self) -> SrcLoc {
         match *self {
-            Expression::Number(_, ref loc) => loc.clone(),
-            Expression::String(_, ref loc) => loc.clone(),
+            Expression::Number(_, ref loc) |
+            Expression::String(_, ref loc) |
             Expression::Ident(_, ref loc) => loc.clone(),
+            
             Expression::FuncDef(ref f) => f.loc.clone(),
             Expression::BinaryOp(ref op) => op.loc.clone(),
             Expression::PrefixOp(ref op) => op.loc.clone(),

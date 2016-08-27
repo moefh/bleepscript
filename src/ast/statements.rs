@@ -24,7 +24,7 @@ impl Statement {
     pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::Statement> {
         match *self {
             Statement::Empty => Ok(exec::Statement::Empty),
-            Statement::VarDecl(_) => panic!("trying to analyze variable declaration"),
+            Statement::VarDecl(ref d) => Err(ParseError::new(d.loc.clone(), "internal error: trying to parse variable declaration")),
             Statement::Expression(ref e) => Ok(exec::Statement::Expression(try!(e.analyze(sym, st)))),
             Statement::Block(ref b) => Ok(exec::Statement::Block(try!(b.analyze(sym, st)))),
             Statement::If(ref i) => Ok(exec::Statement::If(try!(i.analyze(sym, st)))),
@@ -63,8 +63,8 @@ impl Block {
         let mut ret = Vec::new();
         
         while let Some(stmt) = iter.next() {
-            match stmt {
-                &Statement::VarDecl(ref decl) => {
+            match *stmt {
+                Statement::VarDecl(ref decl) => {
                     let val = match decl.val {
                         Some(ref e) => Some(Box::new(try!(e.analyze(sym, st)))),
                         None => None,

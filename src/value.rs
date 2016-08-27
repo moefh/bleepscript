@@ -29,12 +29,12 @@ impl Value {
     
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
-            Value::Closure(ref c) => match c.apply(&args) {
+            Value::Closure(ref c) => match c.apply(args) {
                 Err(RunError::Return(v)) => Ok(v),
                 x => x,
             },
             
-            Value::NativeFunc(f) => match f.call(&args, env) {
+            Value::NativeFunc(f) => match f.call(args, env) {
                 Err(RunError::NativeException(ref str)) => Err(RunError::new_script(loc.clone(), str)),
                 Err(RunError::ScriptException(_, v)) => Err(RunError::ScriptException(loc.clone(), v)),
                 x => x,
@@ -84,13 +84,13 @@ impl Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match self {
-            &Value::Null            => write!(f, "null"),
-            &Value::Bool(b)         => write!(f, "{}", b),
-            &Value::Number(n)       => write!(f, "{}", n),
-            &Value::String(ref s)   => write!(f, "{}", s),
-            &Value::Closure(ref c)  => write!(f, "{}", c),
-            &Value::NativeFunc(_)   => write!(f, "<native_function>"),
+        match *self {
+            Value::Null            => write!(f, "null"),
+            Value::Bool(b)         => write!(f, "{}", b),
+            Value::Number(n)       => write!(f, "{}", n),
+            Value::String(ref s)   => write!(f, "{}", s),
+            Value::Closure(ref c)  => write!(f, "{}", c),
+            Value::NativeFunc(_)   => write!(f, "<native_function>"),
         }
     }
 }

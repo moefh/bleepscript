@@ -15,24 +15,13 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn _get_loc(self) -> SrcLoc {
-        match self {
-            Token::Keyword(_, s) => s,
-            Token::Punct(_, s) => s,
-            Token::Number(_, s) => s,
-            Token::String(_, s) => s,
-            Token::Ident(_, s) => s,
-            Token::Operator(_, s) => s,
-        }
-    }
-
     pub fn peek_loc(&self) -> &SrcLoc {
         match *self {
-            Token::Keyword(_, ref s) => s,
-            Token::Punct(_, ref s) => s,
-            Token::Number(_, ref s) => s,
-            Token::String(_, ref s) => s,
-            Token::Ident(_, ref s) => s,
+            Token::Keyword(_, ref s) |
+            Token::Punct(_, ref s)   |
+            Token::Number(_, ref s)  |
+            Token::String(_, ref s)  |
+            Token::Ident(_, ref s)   |
             Token::Operator(_, ref s) => s,
         }
     }

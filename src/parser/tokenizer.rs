@@ -20,7 +20,7 @@ pub struct Tokenizer {
     ops : ops::OpTable,
     inputs : Vec<TokenizerInput<io::BufReader<fs::File>>>,
     base_dir : Option<path::PathBuf>,
-    saved : Option<Token>,
+    saved : Vec<Token>,
     eof : bool,
     no_loc : SrcLoc,
 }
@@ -31,15 +31,15 @@ impl Tokenizer {
             ops : ops::OpTable::new(),
             inputs : vec![],
             base_dir : None,
-            saved : None,
+            saved : vec![],
             eof : false,
             no_loc : SrcLoc::new("(no file)", 0, 0),
         }
     }
 
     pub fn reset(&mut self) {
-        self.inputs = vec![];
-        self.saved = None;
+        self.inputs.clear();
+        self.saved.clear();
         self.eof = false;
     }
 
@@ -89,16 +89,12 @@ impl Tokenizer {
     }
     
     pub fn unget_token(&mut self, tok : Token) {
-        if self.saved.is_some() {
-            panic!("unget_token() with full buffer");
-        }
-        self.saved = Some(tok);
+        self.saved.push(tok);
     }
     
     fn ungetc(&mut self, ch : char) {
-        match self.inputs.last_mut() {
-            Some(input) => input.chars.ungetc(ch),
-            None => panic!("ungetc with full buffer"),
+        if let Some(input) = self.inputs.last_mut() {
+            input.chars.ungetc(ch)
         }
     }
     
@@ -134,7 +130,7 @@ impl Iterator for Tokenizer {
     
     fn next(&mut self) -> Option<Self::Item> {
         
-        if let Some(tok) = self.saved.take() {
+        if let Some(tok) = self.saved.pop() {
             return Some(Ok(tok));
         }
         
@@ -151,10 +147,9 @@ impl Iterator for Tokenizer {
                 '#' => {
                     loop {
                         match self.getc() {
-                            Some(Ok('\n')) => break,
+                            Some(Ok('\n')) | None => break,
                             Some(Ok(_)) => {}
                             Some(Err(e)) => return Some(Err(ParseError::from_io(self.src_loc(), e))),
-                            None => break,
                         }
                     }
                 }
@@ -193,10 +188,11 @@ impl Iterator for Tokenizer {
                     buf.push(ch);
                     loop {
                         match self.getc() {
-                            Some(Ok(c @ 'a' ... 'z')) => buf.push(c),
-                            Some(Ok(c @ 'A' ... 'Z')) => buf.push(c),
-                            Some(Ok(c @ '0' ... '9')) => buf.push(c),
+                            Some(Ok(c @ 'a' ... 'z')) |
+                            Some(Ok(c @ 'A' ... 'Z')) |
+                            Some(Ok(c @ '0' ... '9')) |
                             Some(Ok(c @ '_')) => buf.push(c),
+                            
                             Some(Ok(c)) => { self.ungetc(c); break; }
                             Some(Err(e)) => return Some(Err(ParseError::from_io(loc, e))),
                             None => break,

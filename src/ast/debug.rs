@@ -135,9 +135,9 @@ impl DebugIndent for WhileStatement {
 impl DebugIndent for ReturnStatement {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         try!(write!(f, "return"));
-        match self.expr {
-            Some(ref e) => try!(e.fmt_indent(f, indent)),
-            None => {},
+        if let Some(ref e) = self.expr {
+            try!(write!(f, " "));
+            try!(e.fmt_indent(f, indent));
         }
         write!(f, ";")
     }

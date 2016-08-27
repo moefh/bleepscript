@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::fmt;
 
-use super::Value;
+use super::{Value, RunError};
 
 /// Execution environment.
 ///
@@ -38,33 +38,31 @@ impl Env {
         self.vals.borrow_mut().push(Value::Null);
     }
     
-    pub fn set_value(&self, val_index : usize, env_index : usize, val : Value) {
+    pub fn set_value(&self, val_index : usize, env_index : usize, val : Value) -> Result<(), RunError> {
         if env_index == 0 {
             let mut vals = self.vals.borrow_mut();
-            if val_index >= vals.len() {
-                panic!("Env::set_value() with invalid val_index: {} >= {}", val_index, vals.len());
+            match vals.get_mut(val_index) {
+                Some(v) => { *v = val; Ok(()) },
+                None => Err(RunError::new_panic(None, &format!("Env::set_value() with invalid val_index: {}", val_index))),
             }
-            vals[val_index] = val;
         } else {
-            if let Some(ref parent) = self.parent {
-                parent.set_value(val_index, env_index - 1, val);
-            } else {
-                panic!("Env::set_value() with with invalid env_index: reached root with env_index = {}", env_index);
+            match self.parent {
+                Some(ref parent) => parent.set_value(val_index, env_index - 1, val),
+                None => Err(RunError::new_panic(None, &format!("Env::set_value() with with invalid env_index: reached root with env_index = {}", env_index)))
             }
         }
     }
     
-    pub fn get_value(&self, val_index : usize, env_index : usize) -> Value {
+    pub fn get_value(&self, val_index : usize, env_index : usize) -> Result<Value, RunError> {
         if env_index == 0 {
-            let vals = self.vals.borrow();
-            if val_index >= vals.len() {
-                panic!("Env::get_value() with invalid val_index: {} >= {}", val_index, vals.len());
+            match self.vals.borrow().get(val_index) {
+                Some(v) => Ok(v.clone()),
+                None => Err(RunError::new_panic(None, &format!("Env::get_value() with invalid val_index: {}", val_index)))
             }
-            vals[val_index].clone()
         } else {
             match self.parent {
                  Some(ref parent) => parent.get_value(val_index, env_index - 1),
-                 None => panic!("Env::get_value() with with invalid env_index: reached root with env_index = {}", env_index),
+                 None => Err(RunError::new_panic(None, &format!("Env::get_value() with with invalid env_index: reached root with env_index = {}", env_index))),
             }
         }
     }
