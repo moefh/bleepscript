@@ -1,4 +1,5 @@
 use std::fmt;
+use std::cmp;
 use std::rc::Rc;
 use super::exec::FuncDef;
 use super::{Env, RunError, NativeFunc, SrcLoc};
@@ -17,7 +18,10 @@ impl Value {
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
             Value::Closure(ref c) => c.apply(&args),
-            Value::NativeFunc(f) => f.call(&args, env),
+            Value::NativeFunc(f) => match f.call(&args, env) {
+                Err(RunError::NativeException(ref str)) => Err(RunError::new_script(str, loc.clone())),
+                x => x
+            },
             ref f => Err(RunError::new_script(&format!("trying to call non-function object '{}'", f), loc.clone()))
         }
     }
@@ -98,5 +102,11 @@ impl Closure {
 impl fmt::Display for Closure {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "<closure@{}>", self.func.loc)
+    }
+}
+
+impl cmp::PartialEq for Closure {
+    fn eq(&self, other: &Closure) -> bool {
+        self as *const Closure == other as *const Closure
     }
 }

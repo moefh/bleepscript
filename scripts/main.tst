@@ -4,11 +4,16 @@ include "include.tst"
 function main(args) {
     printf("Hello, world!\n");
 
-    var x;
+    var x = 1;
     if (x == 1) {
         printf("x is one!\n");
     } else {
         printf("x isn't one!\n");
+    }
+
+    while (x <= 10) {
+        printf("%d\n", x);
+        x = x + 1;
     }
 
     var set_x = function(val) {

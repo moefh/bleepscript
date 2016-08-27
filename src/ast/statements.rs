@@ -15,6 +15,7 @@ pub enum Statement {
     Block(Block),
     VarDecl(VarDecl),
     If(IfStatement),
+    While(WhileStatement),
 }
 
 impl Statement {
@@ -25,6 +26,7 @@ impl Statement {
             Statement::Expression(ref e) => Ok(exec::Statement::Expression(try!(e.analyze(sym)))),
             Statement::Block(ref b) => Ok(exec::Statement::Block(try!(b.analyze(sym)))),
             Statement::If(ref i) => Ok(exec::Statement::If(try!(i.analyze(sym)))),
+            Statement::While(ref w) => Ok(exec::Statement::While(try!(w.analyze(sym)))),
         }
     }
 }
@@ -106,6 +108,30 @@ impl IfStatement {
             None => None,
         };
         Ok(exec::IfStatement::new(self.loc.clone(), test, true_stmt, false_stmt))
+    }
+}
+
+// =========================================================
+// While
+pub struct WhileStatement {
+    pub test : Box<Expression>,
+    pub stmt : Box<Statement>,
+    pub loc : SrcLoc,
+}
+
+impl WhileStatement {
+    pub fn new(loc : SrcLoc, test : Box<Expression>, stmt : Box<Statement>) -> WhileStatement {
+        WhileStatement {
+            test : test,
+            stmt : stmt,
+            loc : loc,
+        }
+    }
+
+    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::WhileStatement> {
+        let test = Box::new(try!(self.test.analyze(sym)));
+        let stmt = Box::new(try!(self.stmt.analyze(sym)));
+        Ok(exec::WhileStatement::new(self.loc.clone(), test, stmt))
     }
 }
 

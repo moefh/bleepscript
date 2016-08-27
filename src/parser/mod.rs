@@ -248,6 +248,7 @@ impl Parser {
                 Some(Ok(Token::Punct('(', loc))) => {
                     if expect_opn {
                         opns.push(try!(self.parse_expr(true, &[')'])));
+                        expect_opn = false;
                     } else {
                         match opns.pop() {
                             Some(func) => opns.push(ast::Expression::FuncCall(ast::FuncCall::new(Box::new(func), try!(self.parse_arg_list())))),
@@ -347,6 +348,16 @@ impl Parser {
         Ok(ast::IfStatement::new(if_loc, test, true_stmt, false_stmt))
     }
 
+    // while (expr) stmt;
+    fn parse_while(&mut self) -> ParseResult<ast::WhileStatement> {
+        let while_loc = try!(self.expect_punct('('));
+        
+        let test = Box::new(try!(self.parse_expr(true, &[')'])));
+        let stmt = Box::new(try!(self.parse_statement()));
+        
+        Ok(ast::WhileStatement::new(while_loc, test, stmt))
+    }
+
     // any statement
     fn parse_statement(&mut self) -> ParseResult<ast::Statement> {
         match self.get_token() {
@@ -363,6 +374,10 @@ impl Parser {
 
             Some(Ok(Token::Keyword(Keyword::If, _))) => {
                 Ok(ast::Statement::If(try!(self.parse_if())))
+            }
+            
+            Some(Ok(Token::Keyword(Keyword::While, _))) => {
+                Ok(ast::Statement::While(try!(self.parse_while())))
             }
             
             Some(Ok(tok)) => {

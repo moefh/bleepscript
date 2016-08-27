@@ -61,17 +61,17 @@ impl Bleep {
 
         // TODO: actual operator functions
         let op = Value::NativeFunc(NativeFunc::new(native::func_generic));
-        self.set_var("==", op.clone());
-        self.set_var("!=", op.clone());
-        self.set_var("<", op.clone());
-        self.set_var("<=", op.clone());
-        self.set_var(">", op.clone());
-        self.set_var(">=", op.clone());
-        self.set_var("+", op.clone());
-        self.set_var("-", op.clone());
-        self.set_var("*", op.clone());
-        self.set_var("/", op.clone());
-        self.set_var("^", op.clone());
+        self.set_var("==", native::make_value(native::func_cmp_eq));
+        self.set_var("!=", native::make_value(native::func_cmp_ne));
+        self.set_var("<",  native::make_value(native::func_cmp_lt));
+        self.set_var("<=", native::make_value(native::func_cmp_le));
+        self.set_var(">",  native::make_value(native::func_cmp_gt));
+        self.set_var(">=", native::make_value(native::func_cmp_ge));
+        self.set_var("+",  native::make_value(native::func_num_add));
+        self.set_var("-",  native::make_value(native::func_num_sub));
+        self.set_var("*",  native::make_value(native::func_num_mul));
+        self.set_var("/",  native::make_value(native::func_num_div));
+        self.set_var("^",  native::make_value(native::func_num_pow));
         self.set_var("!", op.clone());
     }
     

@@ -7,6 +7,7 @@ use super::super::{Value, Env, SrcLoc, RunError};
 pub enum Statement {
     Empty,
     If(IfStatement),
+    While(WhileStatement),
     Block(Block),
     Expression(Expression),
 }
@@ -16,6 +17,7 @@ impl Statement {
         match *self {
             Statement::Empty => Ok(Value::Null),
             Statement::If(ref i) => i.eval(env),
+            Statement::While(ref w) => w.eval(env),
             Statement::Block(ref b) => b.eval(env),
             Statement::Expression(ref e) => e.eval(env),
         }
@@ -90,6 +92,31 @@ impl IfStatement {
         } else {
             Ok(Value::Null)
         }
+    }
+}
+
+// =========================================================
+// While
+pub struct WhileStatement {
+    pub test : Box<Expression>,
+    pub stmt : Box<Statement>,
+    pub loc : SrcLoc,
+}
+
+impl WhileStatement {
+    pub fn new(loc : SrcLoc, test : Box<Expression>, stmt : Box<Statement>) -> WhileStatement {
+        WhileStatement {
+            test : test,
+            stmt : stmt,
+            loc : loc,
+        }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        while try!(self.test.eval(env)).is_true() {
+            try!(self.stmt.eval(env));
+        }
+        Ok(Value::Null)
     }
 }
 
