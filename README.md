@@ -3,10 +3,21 @@
 A simple toy scriting language written in Rust, inspired by SICP's
 [metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
 
-## Example Code
+## Loading and Executing a Script
+
+```Rust
+let mut bleep = Bleep::new();
+
+bleep.load_script("script_file.txt").unwrap();
+
+let ret = bleep.call_function("main", &[]).unwrap();
+println!("function returned {}", ret);
+```
+
+## Example Script
 
 ```javascript
-function main(args) {
+function main() {
     printf("Hello, world!\n");
     test();
     return 0;
