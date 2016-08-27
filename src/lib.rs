@@ -59,20 +59,20 @@ use self::parser::{ops, Parser};
 /// function with a signature like this:
 /// 
 /// ```
-/// fn my_function(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
+/// fn my_function(_args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
 ///     Ok(Value::Number(42.0))
 /// }
 /// ```
 /// 
 /// Then, use `Value::new_native_func()` to create a value for your function,
-/// and `add_var()` to add it to the script global environment:
+/// and `set_var()` to add it to the script global environment:
 /// 
 /// ```
 /// fn main() {
 ///     let mut bleep = Bleep::new();
 ///
 ///     // add your function to the script environment
-///     bleep.add_var("my_function", Value::new_native_func(my_function));
+///     bleep.set_var("my_function", Value::new_native_func(my_function));
 ///
 ///     // load a script that calls your function
 ///     bleep.load_script("test.tst").unwrap();
