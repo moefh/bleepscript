@@ -5,43 +5,44 @@ A simple toy scriting language written in Rust, inspired by SICP's
 
 ## Example Code
 
-    # our rust code calls this function
-    function main(args) {
-        printf("Hello, world!\n");
-        test();
-        return 0;
-    }
-    
-    function make_counter(start) {
-        return function() {
-            return start = start + 1;
-        };
-    }
-    
-    function test() {
-        var c1 = make_counter(0);
-        var c2 = make_counter(10);
-        printf("%d, %d\n", c1(), c2());    # prints 1, 11
-        printf("%d, %d\n", c1(), c2());    # prints 2, 12
+```javascript
+function main(args) {
+    printf("Hello, world!\n");
+    test();
+    return 0;
+}
 
-        if (c1() == 3) {
-            printf("ok!\n");
-            error("ok?");
-        } else {
-            error("this will not happen");
-        }
+function make_counter(start) {
+    return function() {
+        return start = start + 1;
+    };
+}
 
-        var i = 1;
-        while (i <= 10) {
-            if (i == 6)
-                break;
-            printf("%d\n", i);
-            i = i + 1;
-        }
-        
-        return;
+function test() {
+    var c1 = make_counter(0);
+    var c2 = make_counter(10);
+    printf("%d, %d\n", c1(), c2());    # prints 1, 11
+    printf("%d, %d\n", c1(), c2());    # prints 2, 12
+
+    if (c1() == 3) {
+        printf("ok!\n");
+        error("ok?");
+    } else {
         error("this will not happen");
     }
+
+    var i = 1;
+    while (i <= 10) {
+        if (i == 6)
+            break;
+        printf("%d\n", i);
+        i = i + 1;
+    }
+    
+    return;
+    error("this will not happen");
+}
+```
 
 ## Design Limitations
 
