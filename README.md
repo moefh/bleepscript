@@ -3,21 +3,44 @@
 A simple toy scriting language written in Rust, inspired by SICP's
 [metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
 
-The code is in an early stage, it only executes a subset of the final language
-(in particular, `while`, `break` and `return` are not implemented yet).
+## Example Code
 
-##Example Code
-
+    # our rust code calls this function
     function main(args) {
-        print("Hello, world!\n");
+        printf("Hello, world!\n");
         test();
+        return 0;
     }
-
-    function test() {
-        var f = function(x) {
-            print("Hello, ", x, " from anonymous function \n");
+    
+    function make_counter(start) {
+        return function() {
+            return start = start + 1;
         };
-        f("world");
+    }
+    
+    function test() {
+        var c1 = make_counter(0);
+        var c2 = make_counter(10);
+        printf("%d, %d\n", c1(), c2());    # prints 1, 11
+        printf("%d, %d\n", c1(), c2());    # prints 2, 12
+
+        if (c1() == 3) {
+            printf("ok!\n");
+            error("ok?");
+        } else {
+            error("this will not happen");
+        }
+
+        var i = 1;
+        while (i <= 10) {
+            if (i == 6)
+                break;
+            printf("%d\n", i);
+            i = i + 1;
+        }
+        
+        return;
+        error("this will not happen");
     }
 
 ## Design Limitations
