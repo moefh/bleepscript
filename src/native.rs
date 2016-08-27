@@ -2,9 +2,7 @@
 use std::cmp;
 use std::rc::Rc;
 
-use super::Env;
-use super::Value;
-use super::RunError;
+use super::{Env,Value,RunError,SrcLoc};
 
 pub type FuncPointer = fn(&[Value], &Rc<Env>) -> Result<Value,RunError>;
 
@@ -115,6 +113,14 @@ pub fn func_generic(_args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError>
 pub fn func_dump_env(_args : &[Value], env : &Rc<Env>) -> Result<Value,RunError> {
     println!("{:?}", env);
     Ok(Value::Null)
+}
+
+pub fn func_error(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
+    if let Some(v) = args.get(0) {
+        Err(RunError::ScriptException(v.clone(), SrcLoc::new("",0,0)))
+    } else {
+        Ok(Value::Null)
+    }
 }
 
 pub fn func_printf(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {

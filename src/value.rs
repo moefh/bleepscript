@@ -24,6 +24,7 @@ impl Value {
             
             Value::NativeFunc(f) => match f.call(&args, env) {
                 Err(RunError::NativeException(ref str)) => Err(RunError::new_script(str, loc.clone())),
+                Err(RunError::ScriptException(v, _)) => Err(RunError::ScriptException(v, loc.clone())),
                 x => x,
             },
             

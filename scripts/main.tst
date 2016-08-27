@@ -22,4 +22,6 @@ function main(args) {
     };
     set_x(2);
     printf("x is now %d\n", x);
+    
+    return 42;
 }

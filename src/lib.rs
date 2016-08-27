@@ -56,7 +56,12 @@ impl Bleep {
     }
 
     pub fn init_env(&mut self) {
+        self.set_var("null", Value::Null);
+        self.set_var("true", Value::Bool(true));
+        self.set_var("false", Value::Bool(false));
+        
         self.set_var("printf", Value::NativeFunc(NativeFunc::new(native::func_printf)));
+        self.set_var("error", Value::NativeFunc(NativeFunc::new(native::func_error)));
         self.set_var("dump_env", Value::NativeFunc(NativeFunc::new(native::func_dump_env)));
 
         // TODO: actual operator functions
@@ -130,10 +135,7 @@ impl Bleep {
     
     pub fn exec(&self, func_name : &str, args : &[Value]) -> Result<Value, RunError> {
         let func = try!(self.get_var(func_name));
-        match func {
-            Value::Closure(ref c) => c.apply(args),
-            _ => Err(RunError::Panic(format!("'{}' is not a function", func_name), None)),
-        }
+        func.call(args, &self.env, &SrcLoc::new("(no file)", 0, 0))
     }
     
 }
