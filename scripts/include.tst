@@ -10,4 +10,7 @@ function test1(a, b) {
 
 function test2() {
     printf("inside test()\n");
+    while (true) {
+        break;
+    }
 }

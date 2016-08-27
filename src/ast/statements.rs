@@ -6,8 +6,8 @@ use super::Expression;
 
 use super::super::exec;
 use super::super::sym_tab::SymTab;
-use super::super::parser::ParseResult;
-//use super::debug;
+use super::super::parser::{ParseResult, ParseError};
+use super::analysis;
 
 pub enum Statement {
     Expression(Expression),
@@ -21,16 +21,22 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::Statement> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::Statement> {
         match *self {
             Statement::Empty => Ok(exec::Statement::Empty),
             Statement::VarDecl(_) => panic!("trying to analyze variable declaration"),
-            Statement::Expression(ref e) => Ok(exec::Statement::Expression(try!(e.analyze(sym)))),
-            Statement::Block(ref b) => Ok(exec::Statement::Block(try!(b.analyze(sym)))),
-            Statement::If(ref i) => Ok(exec::Statement::If(try!(i.analyze(sym)))),
-            Statement::While(ref w) => Ok(exec::Statement::While(try!(w.analyze(sym)))),
-            Statement::Break(ref l) => Ok(exec::Statement::Break(l.clone())),
-            Statement::Return(ref r) => Ok(exec::Statement::Return(try!(r.analyze(sym)))),
+            Statement::Expression(ref e) => Ok(exec::Statement::Expression(try!(e.analyze(sym, st)))),
+            Statement::Block(ref b) => Ok(exec::Statement::Block(try!(b.analyze(sym, st)))),
+            Statement::If(ref i) => Ok(exec::Statement::If(try!(i.analyze(sym, st)))),
+            Statement::While(ref w) => Ok(exec::Statement::While(try!(w.analyze(sym, st)))),
+            Statement::Return(ref r) => Ok(exec::Statement::Return(try!(r.analyze(sym, st)))),
+            Statement::Break(ref l) => {
+                if try!(st.allow_break(l)) {
+                    Ok(exec::Statement::Break(l.clone()))
+                } else {
+                    Err(ParseError::new(l.clone(), "'break' not allowed here"))
+                }
+            }
         }
     }
 }
@@ -50,24 +56,27 @@ impl Block {
         }
     }
 
-    pub fn analyze_stmts<'a>(&self, sym : &Rc<SymTab>, iter : &mut std::slice::Iter<'a, Statement>) -> ParseResult<Vec<exec::Statement>> {
+    pub fn analyze_stmts<'a>(&self,
+                             sym : &Rc<SymTab>,
+                             mut iter : std::slice::Iter<'a, Statement>,
+                             st : &mut analysis::State) -> ParseResult<Vec<exec::Statement>> {
         let mut ret = Vec::new();
         
         while let Some(stmt) = iter.next() {
             match stmt {
                 &Statement::VarDecl(ref decl) => {
                     let val = match decl.val {
-                        Some(ref e) => Some(Box::new(try!(e.analyze(sym)))),
+                        Some(ref e) => Some(Box::new(try!(e.analyze(sym, st)))),
                         None => None,
                     };
                     let new_sym = SymTab::new(sym.clone(), &[decl.var.clone()]);
-                    let stmts = try!(self.analyze_stmts(&Rc::new(new_sym), iter));
+                    let stmts = try!(self.analyze_stmts(&Rc::new(new_sym), iter, st));
                     let block = exec::Block::new(decl.loc.clone(), true, val, stmts);
                     ret.push(exec::Statement::Block(block));
                     break;
                 }
                 
-                _ => ret.push(try!(stmt.analyze(sym))),
+                _ => ret.push(try!(stmt.analyze(sym, st))),
             }
         }
         
@@ -75,11 +84,11 @@ impl Block {
     }
 
     // TODO: optimize this
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::Block> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::Block> {
         //println!("Block::analyze(): {:?}\n", self);
 
-        let mut iter = (&self.stmts).iter();
-        let stmts = try!(self.analyze_stmts(sym, &mut iter));
+        let iter = (&self.stmts).iter();
+        let stmts = try!(self.analyze_stmts(sym, iter, st));
         Ok(exec::Block::new(self.loc.clone(), false, None, stmts))
     }
 }
@@ -104,11 +113,11 @@ impl IfStatement {
         }
     }
 
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::IfStatement> {
-        let test = Box::new(try!(self.test.analyze(sym)));
-        let true_stmt = Box::new(try!(self.true_stmt.analyze(sym)));
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::IfStatement> {
+        let test = Box::new(try!(self.test.analyze(sym, st)));
+        let true_stmt = Box::new(try!(self.true_stmt.analyze(sym, st)));
         let false_stmt = match self.false_stmt {
-            Some(ref f) => Some(Box::new(try!(f.analyze(sym)))),
+            Some(ref f) => Some(Box::new(try!(f.analyze(sym, st)))),
             None => None,
         };
         Ok(exec::IfStatement::new(self.loc.clone(), test, true_stmt, false_stmt))
@@ -132,9 +141,14 @@ impl WhileStatement {
         }
     }
 
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::WhileStatement> {
-        let test = Box::new(try!(self.test.analyze(sym)));
-        let stmt = Box::new(try!(self.stmt.analyze(sym)));
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::WhileStatement> {
+        let test = Box::new(try!(self.test.analyze(sym, st)));
+        
+        st.save_state();
+        try!(st.set_allow_break(true, &self.loc));
+        let stmt = Box::new(try!(self.stmt.analyze(sym, st)));
+        try!(st.restore_state(&self.loc));
+        
         Ok(exec::WhileStatement::new(self.loc.clone(), test, stmt))
     }
 }
@@ -154,9 +168,9 @@ impl ReturnStatement {
         }
     }
 
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::ReturnStatement> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::ReturnStatement> {
         let expr = match self.expr {
-            Some(ref e) => Some(Box::new(try!(e.analyze(sym)))),
+            Some(ref e) => Some(Box::new(try!(e.analyze(sym, st)))),
             None => None,
         };
         Ok(exec::ReturnStatement::new(self.loc.clone(), expr))
@@ -199,10 +213,15 @@ impl FuncDef {
         }
     }
     
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::FuncDef> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::FuncDef> {
         //println!("FuncDef::analyze(): {:?}\n", self);
         let new_sym = Rc::new(SymTab::new(sym.clone(), &self.params));
-        let block = try!(self.block.analyze(&new_sym));
+        
+        st.save_state();
+        try!(st.set_allow_break(false, &self.loc));
+        let block = try!(self.block.analyze(&new_sym, st));
+        try!(st.restore_state(&self.loc));
+        
         Ok(exec::FuncDef::new(self.loc.clone(), self.params.len(), Box::new(block))) 
     }
 }
@@ -222,9 +241,9 @@ impl NamedFuncDef {
         }
     }
     
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::FuncDef> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::FuncDef> {
         //println!("NamedFuncDef::analyze(): {:?}\n", self);
-        self.def.analyze(sym)
+        self.def.analyze(sym, st)
     }
     
 }

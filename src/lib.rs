@@ -19,8 +19,7 @@ pub use self::value::Value;
 pub use self::native::NativeFunc;
 
 use self::sym_tab::SymTab;
-use self::parser::Parser;
-use self::parser::ops;
+use self::parser::{ops, Parser};
 
 pub struct Bleep {
     env : Rc<Env>,
@@ -126,7 +125,7 @@ impl Bleep {
         
         // analyze all functions and add the the executable versions to the environment
         for ast_func in ast_funcs {
-            let func = Rc::new(try!(ast_func.analyze(&self.sym_tab)));
+            let func = Rc::new(try!(ast_func.analyze(&self.sym_tab, &mut ast::analysis::State::new())));
             let closure = exec::FuncDef::eval(func.clone(), &self.env);
             self.set_var(&*ast_func.name, closure);
             self.funcs.push(func);

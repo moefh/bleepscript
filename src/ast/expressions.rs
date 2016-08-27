@@ -6,6 +6,7 @@ use super::FuncDef;
 use super::super::exec;
 use super::super::sym_tab::SymTab;
 use super::super::parser::{ParseResult, ParseError};
+use super::analysis;
 
 pub enum Expression {
     Number(f64, SrcLoc),
@@ -30,7 +31,7 @@ impl Expression {
         }
     }
     
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::Expression> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::Expression> {
         //println!("Expression::analyze(): {:?}\n", self);
 
         match *self {
@@ -46,18 +47,22 @@ impl Expression {
             
             Expression::BinaryOp(ref op) => {
                 if *op.op == "=" {
-                    self.analyze_assignment(sym, &*op.left, &*op.right)
+                    self.analyze_assignment(sym, &*op.left, &*op.right, st)
                 } else {
-                    Ok(exec::Expression::BinaryOp(try!(op.analyze(sym))))
+                    Ok(exec::Expression::BinaryOp(try!(op.analyze(sym, st))))
                 }
             }
-            Expression::PrefixOp(ref op) => Ok(exec::Expression::PrefixOp(try!(op.analyze(sym)))),
-            Expression::FuncDef(ref f) => Ok(exec::Expression::FuncDef(Rc::new(try!(f.analyze(sym))))),
-            Expression::FuncCall(ref f) => Ok(exec::Expression::FuncCall(try!(f.analyze(sym)))),
+            Expression::PrefixOp(ref op) => Ok(exec::Expression::PrefixOp(try!(op.analyze(sym, st)))),
+            Expression::FuncDef(ref f) => Ok(exec::Expression::FuncDef(Rc::new(try!(f.analyze(sym, st))))),
+            Expression::FuncCall(ref f) => Ok(exec::Expression::FuncCall(try!(f.analyze(sym, st)))),
         }
     }
     
-    fn analyze_assignment(&self, sym : &Rc<SymTab>, var : &Expression, val : &Expression) -> ParseResult<exec::Expression> {
+    fn analyze_assignment(&self,
+                          sym : &Rc<SymTab>,
+                          var : &Expression,
+                          val : &Expression,
+                          st : &mut analysis::State) -> ParseResult<exec::Expression> {
         let (vi, ei) = match *var {
             Expression::Ident(ref id, ref loc) => {
                 match sym.get_name(&*id) {
@@ -69,7 +74,7 @@ impl Expression {
             _ => return Err(ParseError::new(self.loc().clone(), "assignment to invalid target"))
         };
         
-        let val = try!(val.analyze(sym));
+        let val = try!(val.analyze(sym, st));
         Ok(exec::Expression::Assignment(exec::Assignment::new(self.loc(), vi, ei, Box::new(val))))
     }
 }
@@ -90,13 +95,13 @@ impl FuncCall {
         }
     }
     
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::FuncCall> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::FuncCall> {
         //println!("FuncCall::analyze(): {:?}\n", self);
 
-        let func = try!(self.func.analyze(sym));
+        let func = try!(self.func.analyze(sym, st));
         let mut args = vec![];
         for arg in &self.args {
-            args.push(try!(arg.analyze(sym)));
+            args.push(try!(arg.analyze(sym, st)));
         }
 
         Ok(exec::FuncCall::new(func.loc(), Box::new(func), args))
@@ -123,15 +128,15 @@ impl BinaryOp {
         }
     }
     
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::BinaryOp> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::BinaryOp> {
         //println!("BinaryOp::analyze(): {:?}\n", self);
 
         let (vi, ei) = match sym.get_name(&*self.op) {
             Some((vi, ei)) => (vi, ei),
             None => return Err(ParseError::new(self.loc.clone(), &format!("operator doesn't exist: '{}'", self.op)))
         };
-        let left = try!(self.left.analyze(sym));
-        let right = try!(self.right.analyze(sym));
+        let left = try!(self.left.analyze(sym, st));
+        let right = try!(self.right.analyze(sym, st));
         Ok(exec::BinaryOp::new(self.loc.clone(), vi, ei, Box::new(left), Box::new(right)))
     }
 }
@@ -154,14 +159,14 @@ impl PrefixOp {
         }
     }
     
-    pub fn analyze(&self, sym : &Rc<SymTab>) -> ParseResult<exec::PrefixOp> {
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::PrefixOp> {
         //println!("PrefixOp::analyze(): {:?}\n", self);
 
         let (vi, ei) = match sym.get_name(&*self.op) {
             Some((vi, ei)) => (vi, ei),
             None => return Err(ParseError::new(self.loc.clone(), &format!("operator doesn't exist: '{}'", self.op)))
         };
-        let arg = try!(self.arg.analyze(sym));
+        let arg = try!(self.arg.analyze(sym, st));
         Ok(exec::PrefixOp::new(self.loc.clone(), vi, ei, Box::new(arg)))
     }
 
