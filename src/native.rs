@@ -1,45 +1,9 @@
 
-use std::cmp;
 use std::rc::Rc;
 
-use super::{Env,Value,RunError,SrcLoc};
-
-pub type FuncPointer = fn(&[Value], &Rc<Env>) -> Result<Value,RunError>;
-
-#[derive(Copy)]
-pub struct NativeFunc {
-    pub f : FuncPointer,
-}
-
-impl NativeFunc {
-    pub fn new(f : FuncPointer) -> NativeFunc {
-        NativeFunc {
-            f : f,
-        }
-    }
-    
-    pub fn call(&self, args : &[Value], env : &Rc<Env>) -> Result<Value,RunError> {
-        (self.f)(args, env)
-    }
-}
-
-impl Clone for NativeFunc {
-    fn clone(&self) -> NativeFunc {
-        NativeFunc {
-            f : self.f,
-        }
-    }
-}
-
-impl cmp::PartialEq for NativeFunc {
-    fn eq(&self, other: &NativeFunc) -> bool {
-        self as *const NativeFunc == other as *const NativeFunc
-    }
-}
-
-pub fn make_value(f : FuncPointer) -> Value {
-    Value::NativeFunc(NativeFunc::new(f))
-}
+use super::{Value,RunError};
+use super::env::Env;
+use super::src_loc::SrcLoc;
 
 // ==============================================================
 // Helper functions
@@ -116,11 +80,6 @@ fn num_neg(x:f64)->f64 { -x }
 // ==============================================================
 // Native functions
 
-pub fn func_generic(_args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
-    println!("(called unimplemented native function, returning null)");
-    Ok(Value::Null)
-}
-
 pub fn func_dump_env(_args : &[Value], env : &Rc<Env>) -> Result<Value,RunError> {
     println!("{:?}", env);
     Ok(Value::Null)
@@ -128,7 +87,7 @@ pub fn func_dump_env(_args : &[Value], env : &Rc<Env>) -> Result<Value,RunError>
 
 pub fn func_error(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
     if let Some(v) = args.get(0) {
-        Err(RunError::ScriptException(v.clone(), SrcLoc::new("",0,0)))
+        Err(RunError::ScriptException(SrcLoc::new("",0,0), v.clone()))
     } else {
         Ok(Value::Null)
     }
@@ -160,6 +119,13 @@ pub fn func_printf(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
         Err(RunError::new_native("expected format string"))
     }
 }
+
+// !
+pub fn func_logic_not(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
+    let val = try!(get_arg(args, 0));
+    Ok(Value::Bool(! val.is_true()))
+}
+
 
 // ==
 pub fn func_cmp_eq(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {

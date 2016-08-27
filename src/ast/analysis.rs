@@ -1,5 +1,5 @@
 
-use super::super::SrcLoc;
+use super::super::src_loc::SrcLoc;
 use super::super::parser::{ParseResult, ParseError};
 
 #[derive(Clone)]

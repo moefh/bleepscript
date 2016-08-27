@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use super::Env;
+use super::env::Env;
 
 pub struct SymTab {
     parent : Option<Rc<SymTab>>,

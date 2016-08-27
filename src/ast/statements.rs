@@ -1,13 +1,13 @@
 
 use std;
 use std::rc::Rc;
-use super::super::SrcLoc;
-use super::Expression;
 
+use super::super::src_loc::SrcLoc;
 use super::super::exec;
 use super::super::sym_tab::SymTab;
 use super::super::parser::{ParseResult, ParseError};
 use super::analysis;
+use super::Expression;
 
 pub enum Statement {
     Expression(Expression),

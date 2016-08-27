@@ -5,6 +5,11 @@ use std::fmt;
 
 use super::Value;
 
+/// Execution environment.
+///
+/// Stores local and global variable values.
+/// 
+/// Users usually don't need to use this directly. 
 pub struct Env {
     parent : Option<Rc<Env>>,
     vals : RefCell<Vec<Value>>,

@@ -1,9 +1,13 @@
 use std::fmt;
 use std::cmp;
 use std::rc::Rc;
-use super::exec::FuncDef;
-use super::{Env, RunError, NativeFunc, SrcLoc};
 
+use super::env::Env;
+use super::src_loc::SrcLoc;
+use super::exec::FuncDef;
+use super::RunError;
+
+/// A value of the script language.
 #[derive(Clone)]
 pub enum Value {
     Null,
@@ -15,6 +19,14 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn new_string(s : &str) -> Value {
+        Value::String(Rc::new(s.to_string()))
+    }
+    
+    pub fn new_native_func(f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>) -> Value {
+        Value::NativeFunc(NativeFunc::new(f))
+    }
+    
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
             Value::Closure(ref c) => match c.apply(&args) {
@@ -23,17 +35,15 @@ impl Value {
             },
             
             Value::NativeFunc(f) => match f.call(&args, env) {
-                Err(RunError::NativeException(ref str)) => Err(RunError::new_script(str, loc.clone())),
-                Err(RunError::ScriptException(v, _)) => Err(RunError::ScriptException(v, loc.clone())),
+                Err(RunError::NativeException(ref str)) => Err(RunError::new_script(loc.clone(), str)),
+                Err(RunError::ScriptException(_, v)) => Err(RunError::ScriptException(loc.clone(), v)),
                 x => x,
             },
             
-            ref f => Err(RunError::new_script(&format!("trying to call non-function object '{}'", f), loc.clone()))
+            ref f => Err(RunError::new_script(loc.clone(), &format!("trying to call non-function object '{}'", f)))
         }
     }
-}
 
-impl Value {
     pub fn is_true(&self) -> bool {
         match *self {
             Value::Null           => false,
@@ -100,6 +110,11 @@ impl Closure {
     }
     
     pub fn apply(&self, args : &[Value]) -> Result<Value, RunError> {
+        if args.len() != self.func.num_params {
+            return Err(RunError::new_script(self.func.loc.clone(),
+                                            &format!("invalid number of arguments passed (expected {}, got {})",
+                                                     self.func.num_params, args.len())))
+        }
         let new_env = Rc::new(Env::new(self.env.clone(), args));
         self.func.block.eval(&new_env)
     }
@@ -116,3 +131,35 @@ impl cmp::PartialEq for Closure {
         self as *const Closure == other as *const Closure
     }
 }
+
+#[derive(Copy)]
+pub struct NativeFunc {
+    pub f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>,
+}
+
+impl NativeFunc {
+    pub fn new(f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>) -> NativeFunc {
+        NativeFunc {
+            f : f,
+        }
+    }
+    
+    pub fn call(&self, args : &[Value], env : &Rc<Env>) -> Result<Value,RunError> {
+        (self.f)(args, env)
+    }
+}
+
+impl Clone for NativeFunc {
+    fn clone(&self) -> NativeFunc {
+        NativeFunc {
+            f : self.f,
+        }
+    }
+}
+
+impl cmp::PartialEq for NativeFunc {
+    fn eq(&self, other: &NativeFunc) -> bool {
+        self as *const NativeFunc == other as *const NativeFunc
+    }
+}
+

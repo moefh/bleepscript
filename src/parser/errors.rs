@@ -2,7 +2,7 @@
 use std::fmt;
 use std::io;
 
-use super::super::SrcLoc;
+use super::super::src_loc::SrcLoc;
 
 enum ParseErrorData {
     Message(String),
@@ -32,6 +32,16 @@ impl ParseError {
 }
 
 impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.data {
+            ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),
+            ParseErrorData::IOError(ref err) => write!(f, "{}: {}", self.loc, err),
+        }
+        
+    }
+}
+
+impl fmt::Debug for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),

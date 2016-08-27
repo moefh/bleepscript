@@ -11,7 +11,7 @@ use std::path;
 
 pub use self::errors::ParseError;
 
-use super::SrcLoc;
+use super::src_loc::SrcLoc;
 use self::token::{Token, Keyword};
 use super::ast;
 

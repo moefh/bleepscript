@@ -2,7 +2,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use super::super::SrcLoc;
+use super::super::src_loc::SrcLoc;
 
 #[derive(Clone)]
 pub enum Token {

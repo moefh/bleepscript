@@ -7,7 +7,7 @@ use std::rc::Rc;
 use super::token::{Token, Keyword};
 use super::ops;
 use super::{ParseResult, ParseError};
-use super::super::SrcLoc;
+use super::super::src_loc::SrcLoc;
 use super::char_reader::CharReader;
 
 

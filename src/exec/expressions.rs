@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
 use super::Block;
-use super::super::{value, Value, Env, SrcLoc, RunError};
+use super::super::{value, Value, RunError};
+use super::super::src_loc::SrcLoc;
+use super::super::env::Env;
 
 pub enum Expression {
     Number(f64, SrcLoc),

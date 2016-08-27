@@ -2,7 +2,10 @@
 use std::rc::Rc;
 
 use super::Expression;
-use super::super::{Value, Env, SrcLoc, RunError};
+use super::super::{Value, RunError};
+use super::super::env::Env;
+use super::super::src_loc::SrcLoc;
+
 
 pub enum Statement {
     Empty,

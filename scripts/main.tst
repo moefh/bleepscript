@@ -8,9 +8,11 @@ function make_counter(start) {
     };
 }
 
-function main(args) {
+function main(arg) {
     printf("Hello, world!\n");
-
+    #test_function("Hello!");
+    printf("Argument from command line: '%s'\n", arg);
+    
     var c1 = make_counter(0);
     var c2 = make_counter(10);
     printf("%d, %d\n", c1(), c2());
