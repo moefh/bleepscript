@@ -26,7 +26,6 @@ function test() {
 
     if (c1() == 3) {
         printf("ok!\n");
-        error("ok?");
     } else {
         error("this will not happen");
     }
