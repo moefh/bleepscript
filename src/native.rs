@@ -92,7 +92,7 @@ fn bin_arithmetic(args : &[Value], op : fn(f64,f64)->f64, name : &str) -> Result
     let right = try!(get_arg(args, 1));
     match (left, right) {
         (&Value::Number(l), &Value::Number(r)) => Ok(op(l, r)),
-        _ => Err(RunError::new_native(&format!("invalid values for '{}'", name)))
+        _ => Err(RunError::new_native(&format!("invalid arguments for '{}'", name)))
     }
 }
 
@@ -101,6 +101,17 @@ fn num_mul(l:f64, r:f64)->f64 { l*r }
 fn num_sub(l:f64, r:f64)->f64 { l-r }
 fn num_div(l:f64, r:f64)->f64 { l/r }
 fn num_pow(l:f64, r:f64)->f64 { l.powf(r) }
+fn num_mod(l:f64, r:f64)->f64 { l - (l/r).trunc() * r }
+
+fn un_arithmetic(args : &[Value], op : fn(f64)->f64, name : &str) -> Result<f64,RunError> {
+    let arg = try!(get_arg(args, 0));
+    match arg {
+        &Value::Number(x) => Ok(op(x)),
+        _ => Err(RunError::new_native(&format!("invalid argument for '{}'", name)))
+    }
+}
+
+fn num_neg(x:f64)->f64 { -x }
 
 // ==============================================================
 // Native functions
@@ -187,6 +198,9 @@ pub fn func_num_add(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> 
 
 // -
 pub fn func_num_sub(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
+    if args.len() == 1 {
+        return Ok(Value::Number(try!(un_arithmetic(args, num_neg, "-"))));
+    }
     Ok(Value::Number(try!(bin_arithmetic(args, num_sub, "-"))))
 }
 
@@ -203,5 +217,10 @@ pub fn func_num_div(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> 
 // ^
 pub fn func_num_pow(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
     Ok(Value::Number(try!(bin_arithmetic(args, num_pow, "^"))))
+}
+
+// %
+pub fn func_num_mod(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
+    Ok(Value::Number(try!(bin_arithmetic(args, num_mod, "%"))))
 }
 

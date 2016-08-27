@@ -77,6 +77,7 @@ impl Bleep {
         self.set_var("*",  native::make_value(native::func_num_mul));
         self.set_var("/",  native::make_value(native::func_num_div));
         self.set_var("^",  native::make_value(native::func_num_pow));
+        self.set_var("%",  native::make_value(native::func_num_mod));
         self.set_var("!", op.clone());
     }
     
@@ -110,7 +111,7 @@ impl Bleep {
         parser.add_op("-",   60, ops::Assoc::Left);
         parser.add_op("*",   70, ops::Assoc::Left);
         parser.add_op("/",   70, ops::Assoc::Left);
-        parser.add_op("&",   70, ops::Assoc::Left);
+        parser.add_op("%",   70, ops::Assoc::Left);
         parser.add_op("-",   80, ops::Assoc::Prefix);
         parser.add_op("!",   80, ops::Assoc::Prefix);
         parser.add_op("^",   90, ops::Assoc::Right);
