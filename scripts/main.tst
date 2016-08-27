@@ -1,5 +1,6 @@
 
 include "include.tst"
+include "mandelbrot.tst"
 
 function make_counter(start) {
     return function() {
@@ -33,6 +34,8 @@ function main(args) {
     };
     set_x(2);
     printf("x is now %d\n", x);
+
+    mandelbrot(-2,-2, 2,2, 76,38, 150);
     
     return 42;
 }
