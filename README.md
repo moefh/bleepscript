@@ -11,7 +11,7 @@ let mut bleep = Bleep::new();
 bleep.load_script("script_file.bs").unwrap();
 
 let ret = bleep.call_function("main", &[]).unwrap();
-println!("function returned {}", ret);
+println!("script returned {}", ret);
 ```
 
 ## Example Script
