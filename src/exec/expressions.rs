@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use super::FuncDef;
-use super::super::{Value, Env, SrcLoc, RunError};
+use super::Block;
+use super::super::{value, Value, Env, SrcLoc, RunError};
 
 pub enum Expression {
     Number(f64, SrcLoc),
@@ -155,3 +155,24 @@ impl PrefixOp {
     }
 }
 
+// =========================================================
+// FuncDef
+pub struct FuncDef {
+    pub num_params : usize,
+    pub block : Box<Block>,
+    pub loc : SrcLoc,
+}
+
+impl FuncDef {
+    pub fn new(loc : SrcLoc, num_params : usize, block : Box<Block>) -> FuncDef {
+        FuncDef {
+            num_params : num_params,
+            block : block,
+            loc : loc,
+        }
+    }
+    
+    pub fn eval(func : Rc<FuncDef>, env : &Rc<Env>) -> Value {
+        Value::Closure(value::Closure::new(func, env.clone()))
+    }
+}

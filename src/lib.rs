@@ -20,6 +20,7 @@ pub use self::native::NativeFunc;
 
 use self::sym_tab::SymTab;
 use self::parser::Parser;
+use self::parser::ops;
 
 pub struct Bleep {
     env : Rc<Env>,
@@ -60,6 +61,12 @@ impl Bleep {
 
         // TODO: actual operator functions
         let op = Value::NativeFunc(NativeFunc::new(native::func_generic));
+        self.set_var("==", op.clone());
+        self.set_var("!=", op.clone());
+        self.set_var("<", op.clone());
+        self.set_var("<=", op.clone());
+        self.set_var(">", op.clone());
+        self.set_var(">=", op.clone());
         self.set_var("+", op.clone());
         self.set_var("-", op.clone());
         self.set_var("*", op.clone());
@@ -85,13 +92,30 @@ impl Bleep {
     
     pub fn load_script<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
         let mut parser = Parser::new();
-        parser.load_basic_ops();
+        parser.add_op("=",   10, ops::Assoc::Right);
+        parser.add_op("||",  20, ops::Assoc::Left);
+        parser.add_op("&&",  30, ops::Assoc::Left);
+        parser.add_op("==",  40, ops::Assoc::Right);
+        parser.add_op("!=",  40, ops::Assoc::Right);
+        parser.add_op("<",   50, ops::Assoc::Left);
+        parser.add_op(">",   50, ops::Assoc::Left);
+        parser.add_op("<=",  50, ops::Assoc::Left);
+        parser.add_op(">=",  50, ops::Assoc::Left);
+        parser.add_op("+",   60, ops::Assoc::Left);
+        parser.add_op("-",   60, ops::Assoc::Left);
+        parser.add_op("*",   70, ops::Assoc::Left);
+        parser.add_op("/",   70, ops::Assoc::Left);
+        parser.add_op("&",   70, ops::Assoc::Left);
+        parser.add_op("-",   80, ops::Assoc::Prefix);
+        parser.add_op("!",   80, ops::Assoc::Prefix);
+        parser.add_op("^",   90, ops::Assoc::Right);
         
         let ast_funcs = try!(parser.parse(filename));
         
         // add all function names to the environment, so the order doesn't matter
         for ast_func in &ast_funcs {
             self.set_var(&*ast_func.name, Value::Null);
+            //println!("{:?}", ast_func);
         }
         
         // analyze all functions and add the the executable versions to the environment

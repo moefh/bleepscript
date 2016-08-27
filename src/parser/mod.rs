@@ -28,31 +28,6 @@ impl Parser {
         }
     }
     
-    pub fn load_basic_ops(&mut self) {
-        self.add_op("=",   10, ops::Assoc::Right);
-        
-        self.add_op("||",  20, ops::Assoc::Left);
-        self.add_op("&&",  30, ops::Assoc::Left);
-
-        self.add_op("==",  40, ops::Assoc::Right);
-        self.add_op("!=",  40, ops::Assoc::Right);
-        self.add_op("<",   50, ops::Assoc::Left);
-        self.add_op(">",   50, ops::Assoc::Left);
-        self.add_op("<=",  50, ops::Assoc::Left);
-        self.add_op(">=",  50, ops::Assoc::Left);
-
-        self.add_op("+",   60, ops::Assoc::Left);
-        self.add_op("-",   60, ops::Assoc::Left);
-        self.add_op("*",   70, ops::Assoc::Left);
-        self.add_op("/",   70, ops::Assoc::Left);
-        self.add_op("&",   70, ops::Assoc::Left);
-
-        self.add_op("-",   80, ops::Assoc::Prefix);
-        self.add_op("!",   80, ops::Assoc::Prefix);
-
-        self.add_op("^",   90, ops::Assoc::Right);
-    }
-
     pub fn add_op(&mut self, name : &str, prec : i32, assoc : ops::Assoc) {
         self.tokens.ops().add(name, prec, assoc);
     }
@@ -350,34 +325,70 @@ impl Parser {
         }
     }
 
+    // if (expr) true_stmt; [ else false_stmt; ]
+    fn parse_if(&mut self) -> ParseResult<ast::IfStatement> {
+        let if_loc = try!(self.expect_punct('('));
+        
+        let test = Box::new(try!(self.parse_expr(true, &[')'])));
+        let true_stmt = Box::new(try!(self.parse_statement()));
+        
+        let false_stmt = match self.get_token() {
+            Some(Ok(Token::Keyword(token::Keyword::Else, _))) => {
+                Some(Box::new(try!(self.parse_statement())))
+            }
+            Some(Ok(tok)) => {
+                self.unget_token(tok);
+                None
+            }
+            Some(Err(e)) => return Err(e),
+            None => None,
+        };
+        
+        Ok(ast::IfStatement::new(if_loc, test, true_stmt, false_stmt))
+    }
+
+    // any statement
+    fn parse_statement(&mut self) -> ParseResult<ast::Statement> {
+        match self.get_token() {
+            Some(Ok(Token::Punct(';', _))) => Ok(ast::Statement::Empty),
+            
+            Some(Ok(tok @ Token::Punct('{', _))) => {
+                self.unget_token(tok);
+                Ok(ast::Statement::Block(try!(self.parse_block())))
+            }
+
+            Some(Ok(Token::Keyword(Keyword::Var, _))) => {
+                Ok(ast::Statement::VarDecl(try!(self.parse_var_decl())))
+            }
+
+            Some(Ok(Token::Keyword(Keyword::If, _))) => {
+                Ok(ast::Statement::If(try!(self.parse_if())))
+            }
+            
+            Some(Ok(tok)) => {
+                self.unget_token(tok);
+                Ok(ast::Statement::Expression(try!(self.parse_expr(true, &[';']))))
+            }
+            
+            Some(Err(e)) => Err(e),
+            
+            None => Err(self.unexpected_eof("statement")),
+        }
+    }
+
     // { ... }
     fn parse_block(&mut self) -> ParseResult<ast::Block> {
         let block_loc = try!(self.expect_punct('{'));
         
         let mut stmts = vec![];
-        
         loop {
             match self.get_token() {
                 Some(Ok(Token::Punct('}', _))) => break,
-                
-                Some(Ok(Token::Punct(';', _))) => {},
-                
-                Some(Ok(tok @ Token::Punct('{', _))) => {
-                    self.unget_token(tok);
-                    stmts.push(ast::Statement::Block(try!(self.parse_block())));
-                },
-
-                Some(Ok(Token::Keyword(Keyword::Var, _))) => {
-                    stmts.push(ast::Statement::VarDecl(try!(self.parse_var_decl())));
-                },
-                
                 Some(Ok(tok)) => {
                     self.unget_token(tok);
-                    stmts.push(ast::Statement::Expression(try!(self.parse_expr(true, &[';']))));
+                    stmts.push(try!(self.parse_statement()));
                 }
-                
                 Some(Err(e)) => return Err(e),
-                
                 None => return Err(self.unexpected_eof("statement")),
             }
         }

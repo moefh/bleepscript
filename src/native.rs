@@ -33,16 +33,43 @@ impl Clone for NativeFunc {
 }
 
 // ==============================================================
+// Helper functions
+
+fn get_arg(args: &[Value], index : usize) -> Result<&Value, RunError> {
+    match args.get(index) {
+        Some(v) => Ok(v),
+        None => Err(RunError::new_native(&format!("expected argument at position {}", index+1)))
+    }
+}
+
+// ==============================================================
 // Native functions
 
 pub fn func_printf(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
-    for (i, a) in args.iter().enumerate() {
-        if i > 0 {
-            print!("\t");
+    if let Some(&Value::String(ref fmt)) = args.get(0) {
+        let mut chars = fmt.chars();
+        let mut next_arg = 1;
+        while let Some(ch) = chars.next() {
+            if ch == '%' {
+                match chars.next() {
+                    Some('%') => print!("%"),
+                    
+                    Some('x') => { print!("{:x}", try!(try!(get_arg(args, next_arg)).as_i64())); next_arg += 1; }
+                    Some('d') => { print!("{}",   try!(try!(get_arg(args, next_arg)).as_i64())); next_arg += 1; }
+                    Some('f') => { print!("{}",   try!(try!(get_arg(args, next_arg)).as_f64())); next_arg += 1; }
+                    Some('s') => { print!("{}",        try!(get_arg(args, next_arg)));           next_arg += 1; }
+                    
+                    Some(c) => return Err(RunError::new_native(&format!("invalid format specifier: {:?}", c))),
+                    None    => return Err(RunError::new_native("expected format specifier")),
+                };
+            } else {
+                print!("{}", ch);
+            }
         }
-        print!("{}", a);
+        Ok(Value::Null)
+    } else {
+        Err(RunError::new_native("expected format string"))
     }
-    Ok(Value::Null)
 }
 
 pub fn func_dump_env(_args : &[Value], env : &Rc<Env>) -> Result<Value,RunError> {
@@ -51,6 +78,6 @@ pub fn func_dump_env(_args : &[Value], env : &Rc<Env>) -> Result<Value,RunError>
 }
 
 pub fn func_generic(_args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
-    println!("called native function");
-    Ok(Value::String(Rc::new("return value from native function".to_string())))
+    println!("(called unimplemented native function, returning null)");
+    Ok(Value::Null)
 }

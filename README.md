@@ -4,7 +4,7 @@ A simple toy scriting language written in Rust, inspired by SICP's
 [metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
 
 The code is in an early stage, it only executes a subset of the final language
-(in particular, `if`, `while` and `return` are not implemented yet).
+(in particular, `while`, `break` and `return` are not implemented yet).
 
 ##Example Code
 

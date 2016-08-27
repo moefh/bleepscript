@@ -18,8 +18,47 @@ impl Value {
         match *self {
             Value::Closure(ref c) => c.apply(&args),
             Value::NativeFunc(f) => f.call(&args, env),
-            ref f => Err(RunError::new_script_exception(&format!("trying to call non-function object '{}'", f), loc.clone()))
+            ref f => Err(RunError::new_script(&format!("trying to call non-function object '{}'", f), loc.clone()))
         }
+    }
+}
+
+impl Value {
+    pub fn is_true(&self) -> bool {
+        match *self {
+            Value::Null           => false,
+            Value::Bool(b)        => b,
+            Value::Number(n)      => n != 0.0,   // should this be always true?
+            Value::String(_)      => true,
+            Value::Closure(_)     => true,
+            Value::NativeFunc(_)  => true,
+        }
+    }
+    
+    pub fn as_i64(&self) -> Result<i64, RunError> {
+        match *self {
+            Value::Null           => Err(RunError::new_native("can't convert null to i64")),
+            Value::Bool(b)        => if b { Ok(1) } else { Ok(0) },
+            Value::Number(n)      => Ok(n as i64),
+            Value::String(_)      => Err(RunError::new_native("can't convert string to i64")),
+            Value::Closure(_)     => Err(RunError::new_native("can't convert closure to i64")),
+            Value::NativeFunc(_)  => Err(RunError::new_native("can't convert native function to i64")),
+        }
+    }
+
+    pub fn as_f64(&self) -> Result<f64, RunError> {
+        match *self {
+            Value::Null           => Err(RunError::new_native("can't convert null to f64")),
+            Value::Bool(b)        => if b { Ok(1.0) } else { Ok(0.0) },
+            Value::Number(n)      => Ok(n),
+            Value::String(_)      => Err(RunError::new_native("can't convert string to f64")),
+            Value::Closure(_)     => Err(RunError::new_native("can't convert closure to f64")),
+            Value::NativeFunc(_)  => Err(RunError::new_native("can't convert native function to f64")),
+        }
+    }
+
+    pub fn as_string(&self) -> String {
+        format!("{}", self)
     }
 }
 

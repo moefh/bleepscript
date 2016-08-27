@@ -79,6 +79,8 @@ impl DebugIndent for Assignment {
 impl DebugIndent for Statement {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         match *self {
+            Statement::Empty               => write!(f, ";"),
+            Statement::If(ref i)           => i.fmt_indent(f, indent),
             Statement::Block(ref b)        => b.fmt_indent(f, indent),
             Statement::Expression(ref e)   => {
                 try!(e.fmt_indent(f, indent));
@@ -91,12 +93,15 @@ impl DebugIndent for Statement {
 impl DebugIndent for Block {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         try!(writeln!(f, "{{"));
-        if let Some(ref val) = self.var {
+        if self.has_var {
             try!(write!(f, "{1:0$}", indent + 2, ""));
-            try!(write!(f, "var <0@0> = "));
-            try!((*val).fmt_indent(f, indent + 2));
+            try!(write!(f, "var <0@0>"));
+            if let Some(ref val) = self.var_val {
+                try!(write!(f, " = "));
+                try!((*val).fmt_indent(f, indent + 2));
+            }
             try!(writeln!(f, ";"));
-        };
+        }
         for s in &self.stmts {
             try!(write!(f, "{1:0$}", indent + 2, ""));
             try!(s.fmt_indent(f, indent + 2));
@@ -105,6 +110,23 @@ impl DebugIndent for Block {
         write!(f, "{1:0$}}}", indent, "")
     }
 }
+
+impl DebugIndent for IfStatement {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "if ("));
+        try!(self.test.fmt_indent(f, indent));
+        try!(write!(f, ") "));
+        try!(self.true_stmt.fmt_indent(f, indent));
+        if let Some(ref e) = self.false_stmt {
+            try!(write!(f, " else "));
+            try!(e.fmt_indent(f, indent));
+        };
+        Ok(())
+    }
+}
+
+// ================================================
+// fmt::Debug
 
 impl fmt::Debug for FuncCall {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {

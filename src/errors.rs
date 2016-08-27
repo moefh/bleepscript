@@ -11,8 +11,16 @@ pub enum RunError {
 }
 
 impl RunError {
-    pub fn new_script_exception(msg : &str, loc : SrcLoc) -> RunError {
+    pub fn new_script(msg : &str, loc : SrcLoc) -> RunError {
         RunError::ScriptException(Value::String(Rc::new(msg.to_string())), loc)
+    }
+
+    pub fn new_native(msg : &str) -> RunError {
+        RunError::NativeException(msg.to_string())
+    }
+
+    pub fn new_panic(msg : &str, loc : Option<SrcLoc>) -> RunError {
+        RunError::Panic(msg.to_string(), loc)
     }
 }
 

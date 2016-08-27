@@ -82,12 +82,14 @@ impl DebugIndent for FuncCall {
 impl DebugIndent for Statement {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         match *self {
-            Statement::Block(ref b)        => b.fmt_indent(f, indent),
-            Statement::VarDecl(ref v)      => v.fmt_indent(f, indent),
-            Statement::Expression(ref e)   => {
+            Statement::Expression(ref e) => {
                 try!(e.fmt_indent(f, indent));
                 write!(f, ";")
             },
+            Statement::Empty           => write!(f, ";"),
+            Statement::Block(ref b)    => b.fmt_indent(f, indent),
+            Statement::VarDecl(ref v)  => v.fmt_indent(f, indent),
+            Statement::If(ref i)       => i.fmt_indent(f, indent),
         }
     }
 }
@@ -101,6 +103,20 @@ impl DebugIndent for Block {
             try!(writeln!(f, ""));
         }
         write!(f, "{1:0$}}}", indent, "")
+    }
+}
+
+impl DebugIndent for IfStatement {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(write!(f, "if ("));
+        try!(self.test.fmt_indent(f, indent));
+        try!(write!(f, ") "));
+        try!(self.true_stmt.fmt_indent(f, indent));
+        if let Some(ref e) = self.false_stmt {
+            try!(write!(f, " else "));
+            try!(e.fmt_indent(f, indent));
+        };
+        Ok(())
     }
 }
 
