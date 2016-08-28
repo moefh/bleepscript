@@ -11,7 +11,7 @@ use super::src_loc::SrcLoc;
 fn get_arg(args: &[Value], index : usize) -> Result<&Value, RunError> {
     match args.get(index) {
         Some(v) => Ok(v),
-        None => Err(RunError::new_native(&format!("expected argument at position {}", index+1)))
+        None => Err(RunError::new_native_str(&format!("expected argument at position {}", index+1)))
     }
 }
 
@@ -56,7 +56,7 @@ fn bin_arithmetic(args : &[Value], op : fn(f64,f64)->f64, name : &str) -> Result
     let right = try!(get_arg(args, 1));
     match (left, right) {
         (&Value::Number(l), &Value::Number(r)) => Ok(op(l, r)),
-        _ => Err(RunError::new_native(&format!("invalid arguments for '{}'", name)))
+        _ => Err(RunError::new_native_str(&format!("invalid arguments for '{}'", name)))
     }
 }
 
@@ -71,7 +71,7 @@ fn un_arithmetic(args : &[Value], op : fn(f64)->f64, name : &str) -> Result<f64,
     let arg = try!(get_arg(args, 0));
     match *arg {
         Value::Number(x) => Ok(op(x)),
-        _ => Err(RunError::new_native(&format!("invalid argument for '{}'", name)))
+        _ => Err(RunError::new_native_str(&format!("invalid argument for '{}'", name)))
     }
 }
 
@@ -107,8 +107,8 @@ pub fn func_printf(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
                     Some('f') => { print!("{}",   try!(try!(get_arg(args, next_arg)).as_f64())); next_arg += 1; }
                     Some('s') => { print!("{}",        try!(get_arg(args, next_arg)));           next_arg += 1; }
                     
-                    Some(c) => return Err(RunError::new_native(&format!("invalid format specifier: {:?}", c))),
-                    None    => return Err(RunError::new_native("expected format specifier")),
+                    Some(c) => return Err(RunError::new_native_str(&format!("invalid format specifier: {:?}", c))),
+                    None    => return Err(RunError::new_native_str("expected format specifier")),
                 };
             } else {
                 print!("{}", ch);
@@ -116,7 +116,7 @@ pub fn func_printf(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
         }
         Ok(Value::Null)
     } else {
-        Err(RunError::new_native("expected format string"))
+        Err(RunError::new_native_str("expected format string"))
     }
 }
 

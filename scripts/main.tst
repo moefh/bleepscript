@@ -13,6 +13,7 @@ function map_literal() {
     printf("x.a = '%s'\n", x.a);
     printf("x.c = '%s'\n", x.c);
     x.c.read();
+    printf("printf = %s\n", printf);
 }
 
 function make_counter(start) {

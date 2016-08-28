@@ -3,8 +3,10 @@
 //! # Loading and Executing a Script
 //!
 //! ```
+//! use bleepscript::Bleep;
+//!
 //! let mut bleep = Bleep::new();
-//! bleep.load_file("test.tst").unwrap();
+//! bleep.load_file("scripts/test.tst").unwrap();
 //! bleep.call_function("main", &[]).unwrap();
 //! ```
 //!
@@ -47,9 +49,11 @@ use self::parser::{ops, Parser};
 /// # Example
 ///
 /// ```
+/// use bleepscript::Bleep;
+///
 /// let mut bleep = Bleep::new();
 ///
-/// bleep.load_file("test.tst").unwrap();
+/// bleep.load_file("scripts/test.tst").unwrap();
 ///
 /// let ret = bleep.call_function("main", &[]).unwrap();
 /// println!("function returned {}", ret);
@@ -61,7 +65,10 @@ use self::parser::{ops, Parser};
 /// function with a signature like this:
 /// 
 /// ```
-/// fn my_function(_args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
+/// use std::rc;
+/// use bleepscript::{Value, Env, RunError};
+///
+/// fn my_function(_args : &[Value], _env : &rc::Rc<Env>) -> Result<Value, RunError> {
 ///     Ok(Value::Number(42.0))
 /// }
 /// ```
@@ -70,19 +77,17 @@ use self::parser::{ops, Parser};
 /// and `set_var()` to add it to the script global environment:
 /// 
 /// ```
-/// fn main() {
-///     let mut bleep = Bleep::new();
-///
-///     // add your function to the script environment
-///     bleep.set_var("my_function", Value::new_native_func(my_function));
-///
-///     // load a script that calls your function
-///     bleep.load_string("function main() {\
-///                            return my_function(\"Hello!\");\
-///                        }").unwrap();
-///
-///     // ...
-/// }
+/// # use std::rc;
+/// # use bleepscript::{Env, RunError, Value};
+/// # fn my_function(_args : &[Value], _env : &rc::Rc<Env>) -> Result<Value, RunError> {
+/// #     Ok(Value::Number(42.0))
+/// # }
+/// #
+/// # use bleepscript::Bleep;
+/// # fn main() {
+/// #    let mut bleep = Bleep::new();
+/// bleep.set_var("my_function", Value::new_native_func(my_function));
+/// # }
 /// ```
 /// 
 /// It's important to add your functions *before* loading a script that will
@@ -96,7 +101,16 @@ pub struct Bleep {
 }
 
 impl Bleep {
-    /// Constructs a new script loader.
+    /// Constructs a new script interpreter.
+    ///
+    /// The environment will be prepared with the basic Bleep functions.
+    ///
+    /// # Examples
+    /// ```
+    /// use bleepscript::Bleep;
+    ///
+    /// let mut bleep = Bleep::new();
+    /// ```
     pub fn new() -> Bleep {
         let mut bleep = Bleep {
             env : Rc::new(Env::new_global()),
@@ -109,6 +123,22 @@ impl Bleep {
     }
     
     /// Loads a script from the given file.
+    ///
+    /// Any files included with the `include` command will be read from the filesystem,
+    /// relative to the directory of the original file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bleepscript::Bleep;
+    ///
+    /// let mut bleep = Bleep::new();
+    ///
+    /// match bleep.load_file("myscript.bs") {
+    ///     Ok(()) => println!("Successfully loaded file!"),
+    ///     Err(e) => println!("Error loading file:\n{}\n", e),
+    /// }
+    /// ```
     pub fn load_file<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
         let mut parser = Parser::new(Box::new(readers::FileOpener));
         self.init_parser(&mut parser);
@@ -116,6 +146,22 @@ impl Bleep {
     }
 
     /// Loads a script from the given string.
+    ///
+    /// Scripts loaded from strings can't contain `include` commands, because
+    /// the string is the only available source.
+    ///
+    /// # Examples
+    /// ```
+    /// use bleepscript::{Bleep, Value};
+    ///
+    /// let mut bleep = Bleep::new();
+    ///
+    /// bleep.load_string(r#"function test() { printf("Hello, world!\n"); return 42; }"#)
+    ///      .expect("Error loading string");
+    /// 
+    /// let result = bleep.call_function("test", &[]).expect("Error in function test()");
+    /// assert_eq!(result, Value::Number(42.0));
+    /// ```
     pub fn load_string(&mut self, string : &str) -> Result<(), ParseError> {
         let mut parser = Parser::new(Box::new(readers::StringOpener::for_string(string)));
         self.init_parser(&mut parser);
@@ -124,7 +170,7 @@ impl Bleep {
 
     /// Loads a script from the given source, using the given source opener.
     ///
-    /// The source opener will be used to open the given source and any sources
+    /// The source opener will be used to open the given source and any other sources
     /// included by the script. 
     pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<CharReaderOpener>) -> Result<(), ParseError> {
         let mut parser = Parser::new(source_opener);
@@ -222,8 +268,8 @@ impl Bleep {
         parser.add_op("=",   10, ops::Assoc::Right);
         parser.add_op("||",  20, ops::Assoc::Left);
         parser.add_op("&&",  30, ops::Assoc::Left);
-        parser.add_op("==",  40, ops::Assoc::Right);
-        parser.add_op("!=",  40, ops::Assoc::Right);
+        parser.add_op("==",  40, ops::Assoc::Left);
+        parser.add_op("!=",  40, ops::Assoc::Left);
         parser.add_op("<",   50, ops::Assoc::Left);
         parser.add_op(">",   50, ops::Assoc::Left);
         parser.add_op("<=",  50, ops::Assoc::Left);

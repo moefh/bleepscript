@@ -10,12 +10,25 @@ use super::RunError;
 /// A value of the script language.
 #[derive(Clone, PartialEq)]
 pub enum Value {
+    /// The null value, `null`.
     Null,
+    
+    /// `true` or `false`
     Bool(bool),
+    
+    /// Floating point number
     Number(f64),
+    
+    /// String
     String(Rc<String>),
+    
+    /// Map
     Map(Rc<MapValue>),
+    
+    /// Closure (the result of evaluating a function definition)
     Closure(Closure),
+    
+    /// Rust function 
     NativeFunc(NativeFunc),
 }
 
@@ -46,9 +59,8 @@ impl Value {
             },
             
             Value::NativeFunc(f) => match f.call(args, env) {
-                Err(RunError::NativeException(ref str)) => Err(RunError::new_script(loc.clone(), str)),
-                Err(RunError::ScriptException(_, v)) => Err(RunError::ScriptException(loc.clone(), v)),
-                x => x,
+                Err(e) => Err(e.native_to_script(loc)),
+                Ok(x) => Ok(x),
             },
             
             ref f => Err(RunError::new_script(loc.clone(), &format!("trying to call non-function object '{}'", f)))
@@ -69,25 +81,25 @@ impl Value {
     
     pub fn as_i64(&self) -> Result<i64, RunError> {
         match *self {
-            Value::Null           => Err(RunError::new_native("can't convert null to i64")),
+            Value::Null           => Err(RunError::new_native_str("can't convert null to i64")),
             Value::Bool(b)        => if b { Ok(1) } else { Ok(0) },
             Value::Number(n)      => Ok(n as i64),
-            Value::String(_)      => Err(RunError::new_native("can't convert string to i64")),
-            Value::Map(_)         => Err(RunError::new_native("can't convert map to i64")),
-            Value::Closure(_)     => Err(RunError::new_native("can't convert closure to i64")),
-            Value::NativeFunc(_)  => Err(RunError::new_native("can't convert native function to i64")),
+            Value::String(_)      => Err(RunError::new_native_str("can't convert string to i64")),
+            Value::Map(_)         => Err(RunError::new_native_str("can't convert map to i64")),
+            Value::Closure(_)     => Err(RunError::new_native_str("can't convert closure to i64")),
+            Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to i64")),
         }
     }
 
     pub fn as_f64(&self) -> Result<f64, RunError> {
         match *self {
-            Value::Null           => Err(RunError::new_native("can't convert null to f64")),
+            Value::Null           => Err(RunError::new_native_str("can't convert null to f64")),
             Value::Bool(b)        => if b { Ok(1.0) } else { Ok(0.0) },
             Value::Number(n)      => Ok(n),
-            Value::String(_)      => Err(RunError::new_native("can't convert string to f64")),
-            Value::Map(_)         => Err(RunError::new_native("can't convert map to f64")),
-            Value::Closure(_)     => Err(RunError::new_native("can't convert closure to f64")),
-            Value::NativeFunc(_)  => Err(RunError::new_native("can't convert native function to f64")),
+            Value::String(_)      => Err(RunError::new_native_str("can't convert string to f64")),
+            Value::Map(_)         => Err(RunError::new_native_str("can't convert map to f64")),
+            Value::Closure(_)     => Err(RunError::new_native_str("can't convert closure to f64")),
+            Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to f64")),
         }
     }
 
@@ -99,14 +111,20 @@ impl Value {
 impl fmt::Display for Value {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
-            Value::Null            => write!(f, "null"),
-            Value::Bool(b)         => write!(f, "{}", b),
-            Value::Number(n)       => write!(f, "{}", n),
-            Value::String(ref s)   => write!(f, "{}", s),
-            Value::Map(ref m)      => write!(f, "{}", m),
-            Value::Closure(ref c)  => write!(f, "{}", c),
-            Value::NativeFunc(_)   => write!(f, "<native_function>"),
+            Value::Null              => write!(f, "null"),
+            Value::Bool(b)           => write!(f, "{}", b),
+            Value::Number(n)         => write!(f, "{}", n),
+            Value::String(ref s)     => write!(f, "{}", s),
+            Value::Map(ref m)        => write!(f, "{}", m),
+            Value::Closure(ref c)    => write!(f, "{}", c),
+            Value::NativeFunc(ref n) => write!(f, "{}", n),
         }
+    }
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self)
     }
 }
 
@@ -169,6 +187,12 @@ impl Clone for NativeFunc {
         NativeFunc {
             f : self.f,
         }
+    }
+}
+
+impl fmt::Display for NativeFunc {
+    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "<native_func@{:x}>", self as *const NativeFunc as usize)
     }
 }
 
