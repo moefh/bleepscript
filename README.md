@@ -42,7 +42,8 @@ function test() {
     c2.next();
     printf("%d, %d\n", c1.read(), c2.read());    # prints 1, 11
 
-    if (c1() == 3) {
+    c1.next();
+    if (c1.read() == 2) {
         printf("ok!\n");
     } else {
         error("this will not happen");
