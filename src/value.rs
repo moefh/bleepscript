@@ -8,12 +8,13 @@ use super::exec::FuncDef;
 use super::RunError;
 
 /// A value of the script language.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),
     Number(f64),
     String(Rc<String>),
+    Map(Rc<MapValue>),
     Closure(Closure),
     NativeFunc(NativeFunc),
 }
@@ -25,6 +26,16 @@ impl Value {
     
     pub fn new_native_func(f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>) -> Value {
         Value::NativeFunc(NativeFunc::new(f))
+    }
+    
+    pub fn index(&self, index : &Value, loc : &SrcLoc) -> Result<Value, RunError> {
+        match *self {
+            Value::Map(ref m) => match m.get(index) {
+                Some(v) => Ok(v),
+                None => Err(RunError::new_script(loc.clone(), &format!("map doesn't contain key '{}'", index)))
+            },
+            _ => Err(RunError::new_script(loc.clone(), &format!("trying to index non-container object '{}'", self)))
+        }
     }
     
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
@@ -50,6 +61,7 @@ impl Value {
             Value::Bool(b)        => b,
             Value::Number(n)      => n != 0.0,   // should this be always true?
             Value::String(_)      => true,
+            Value::Map(_)         => true,
             Value::Closure(_)     => true,
             Value::NativeFunc(_)  => true,
         }
@@ -61,6 +73,7 @@ impl Value {
             Value::Bool(b)        => if b { Ok(1) } else { Ok(0) },
             Value::Number(n)      => Ok(n as i64),
             Value::String(_)      => Err(RunError::new_native("can't convert string to i64")),
+            Value::Map(_)         => Err(RunError::new_native("can't convert map to i64")),
             Value::Closure(_)     => Err(RunError::new_native("can't convert closure to i64")),
             Value::NativeFunc(_)  => Err(RunError::new_native("can't convert native function to i64")),
         }
@@ -72,6 +85,7 @@ impl Value {
             Value::Bool(b)        => if b { Ok(1.0) } else { Ok(0.0) },
             Value::Number(n)      => Ok(n),
             Value::String(_)      => Err(RunError::new_native("can't convert string to f64")),
+            Value::Map(_)         => Err(RunError::new_native("can't convert map to f64")),
             Value::Closure(_)     => Err(RunError::new_native("can't convert closure to f64")),
             Value::NativeFunc(_)  => Err(RunError::new_native("can't convert native function to f64")),
         }
@@ -89,6 +103,7 @@ impl fmt::Display for Value {
             Value::Bool(b)         => write!(f, "{}", b),
             Value::Number(n)       => write!(f, "{}", n),
             Value::String(ref s)   => write!(f, "{}", s),
+            Value::Map(ref m)      => write!(f, "{}", m),
             Value::Closure(ref c)  => write!(f, "{}", c),
             Value::NativeFunc(_)   => write!(f, "<native_function>"),
         }
@@ -163,3 +178,38 @@ impl cmp::PartialEq for NativeFunc {
     }
 }
 
+#[derive(PartialEq)]
+pub struct MapValue {
+    entries : Vec<(Value, Value)>,
+}
+
+impl MapValue {
+    pub fn new() -> MapValue {
+        MapValue {
+            entries : vec![],
+        }
+    }
+    
+    pub fn insert(&mut self, key : Value, val : Value) {
+        self.entries.retain(|&(ref k, _)| *k != key);
+        self.entries.push((key, val));
+    }
+    
+    pub fn get(&self, key : &Value) -> Option<Value> {
+        if let Some(&(_, ref v)) = self.entries.iter().find(|&&(ref k, _)| *k == *key) {
+            Some(v.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl fmt::Display for MapValue {
+    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        try!(write!(f, "{{ "));
+        for &(ref k, ref v) in &self.entries {
+            try!(write!(f, "\"{}\" : {}, ", k, v));
+        }
+        write!(f, "}}")
+    }
+}

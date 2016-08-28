@@ -145,6 +145,7 @@ impl Bleep {
             let func = Rc::new(try!(ast_func.analyze(&self.sym_tab, &mut ast::analysis::State::new())));
             let closure = exec::FuncDef::eval(func.clone(), &self.env);
             self.set_var(&*ast_func.name, closure);
+            //println!("{:?}", func);
             self.funcs.push(func);
         }
         Ok(())
@@ -235,6 +236,10 @@ impl Bleep {
         parser.add_op("-",   80, ops::Assoc::Prefix);
         parser.add_op("!",   80, ops::Assoc::Prefix);
         parser.add_op("^",   90, ops::Assoc::Right);
+        parser.add_op(".", 1001, ops::Assoc::Left);
+
+        parser.set_element_index_prec(1000);
+        parser.set_function_call_prec(1000);
     }
     
     /// Dumps the global environment (used for debugging).

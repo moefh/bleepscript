@@ -2,21 +2,44 @@
 include "include.tst"
 include "mandelbrot.tst"
 
+function map_literal() {
+    var x = {
+        a : 1,
+        b : 2,
+        c : make_counter(0),
+        "any string" : 42
+    };
+    printf("%s\n", x);
+    printf("x.a = '%s'\n", x.a);
+    printf("x.c = '%s'\n", x.c);
+    x.c.read();
+}
+
 function make_counter(start) {
-    return function() {
-        return start = start + 1;
+    return {
+        next : function() {
+            return start = start + 1;
+        },
+
+        read : function() {
+            return start;
+        },
     };
 }
 
 function main(arg) {
     printf("Hello, world!\n");
-    #test_function("Hello!");
     printf("Argument from command line: '%s'\n", arg);
+
+    map_literal();
     
     var c1 = make_counter(0);
     var c2 = make_counter(10);
-    printf("%d, %d\n", c1(), c2());
-    printf("%d, %d\n", c1(), c2());
+    c1.next();
+    c2.next();
+    c1.next();
+    c2.next();
+    printf("%d, %d\n", c1.read(), c2.read());
 
     var x = 1;
     if (x == 1) {

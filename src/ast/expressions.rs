@@ -3,6 +3,7 @@ use std::rc::Rc;
 use super::super::src_loc::SrcLoc;
 use super::super::exec;
 use super::super::sym_tab::SymTab;
+use super::super::Value;
 use super::super::parser::{ParseResult, ParseError};
 use super::analysis;
 use super::FuncDef;
@@ -11,10 +12,12 @@ pub enum Expression {
     Number(f64, SrcLoc),
     String(Rc<String>, SrcLoc),
     Ident(Rc<String>, SrcLoc),
-    FuncDef(Rc<FuncDef>),
+    Map(MapLiteral),
+    Element(Element),
     BinaryOp(BinaryOp),
     PrefixOp(PrefixOp),
     FuncCall(FuncCall),
+    FuncDef(Rc<FuncDef>),
 }
 
 impl Expression {
@@ -24,10 +27,12 @@ impl Expression {
             Expression::String(_, ref loc) |
             Expression::Ident(_, ref loc) => loc.clone(),
             
-            Expression::FuncDef(ref f) => f.loc.clone(),
+            Expression::Map(ref m) => m.loc.clone(),
+            Expression::Element(ref e) => e.loc.clone(),
             Expression::BinaryOp(ref op) => op.loc.clone(),
             Expression::PrefixOp(ref op) => op.loc.clone(),
             Expression::FuncCall(ref f) => f.func.loc(),
+            Expression::FuncDef(ref f) => f.loc.clone(),
         }
     }
     
@@ -44,12 +49,15 @@ impl Expression {
                     None => Err(ParseError::new(loc.clone(), &format!("name not declared: '{}'", id)))
                 }
             }
+
+            Expression::Map(ref m) => Ok(exec::Expression::Map(try!(m.analyze(sym, st)))),
+            Expression::Element(ref e) => Ok(exec::Expression::Element(try!(e.analyze(sym, st)))),
             
             Expression::BinaryOp(ref op) => {
-                if *op.op == "=" {
-                    self.analyze_assignment(sym, &*op.left, &*op.right, st)
-                } else {
-                    Ok(exec::Expression::BinaryOp(try!(op.analyze(sym, st))))
+                match &**op.op {
+                    "=" => self.analyze_assignment(sym, &*op.left, &*op.right, st),
+                    "." => self.analyze_dot(sym, &*op.left, &*op.right, st),
+                    _ => Ok(exec::Expression::BinaryOp(try!(op.analyze(sym, st)))),
                 }
             }
             Expression::PrefixOp(ref op) => Ok(exec::Expression::PrefixOp(try!(op.analyze(sym, st)))),
@@ -76,6 +84,76 @@ impl Expression {
         
         let val = try!(val.analyze(sym, st));
         Ok(exec::Expression::Assignment(exec::Assignment::new(self.loc(), vi, ei, Box::new(val))))
+    }
+
+    fn analyze_dot(&self,
+                  sym : &Rc<SymTab>,
+                  container : &Expression,
+                  index : &Expression,
+                  st : &mut analysis::State) -> ParseResult<exec::Expression> {
+        match *index {
+            Expression::Ident(ref id, ref loc) => {
+                let c = try!(container.analyze(sym, st));
+                let i = exec::Expression::String(id.clone(), loc.clone());
+                Ok(exec::Expression::Element(exec::Element::new(self.loc(), Box::new(c), Box::new(i))))
+            }
+            
+            _ => return Err(ParseError::new(index.loc().clone(), "attribute must be an identifier")),
+        }
+    }
+}
+
+// =========================================================
+// MapLiteral
+
+pub struct MapLiteral {
+    pub entries : Vec<(Rc<String>, Expression)>,
+    loc : SrcLoc,
+}
+
+impl MapLiteral {
+    pub fn new(loc : SrcLoc, entries : Vec<(Rc<String>, Expression)>) -> MapLiteral {
+        MapLiteral {
+            entries : entries,
+            loc : loc,
+        }
+    }
+    
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::MapLiteral> {
+        //println!("MapLiteral::analyze(): {:?}\n", self);
+
+        let mut entries : Vec<(Value, exec::Expression)> = vec![];
+        for &(ref k, ref v) in &self.entries {
+            let k = Value::String(k.clone());
+            let v = try!(v.analyze(sym, st));
+            entries.push((k, v));
+        }
+        Ok(exec::MapLiteral::new(self.loc.clone(), entries))
+    }
+}
+
+// =========================================================
+// Element
+
+pub struct Element {
+    pub container : Box<Expression>,
+    pub index : Box<Expression>,
+    loc : SrcLoc,
+}
+
+impl Element {
+    pub fn new(loc : SrcLoc, container : Box<Expression>, index : Box<Expression>) -> Element {
+        Element {
+            container : container,
+            index : index,
+            loc : loc,
+        }
+    }
+    
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::Element> {
+        let c = try!(self.container.analyze(sym, st));
+        let i = try!(self.index.analyze(sym, st));
+        Ok(exec::Element::new(self.loc.clone(), Box::new(c), Box::new(i)))
     }
 }
 

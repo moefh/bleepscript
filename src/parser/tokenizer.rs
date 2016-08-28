@@ -122,7 +122,7 @@ impl Tokenizer {
                 ' ' | '\t' | '\r' | '\n' => {}
                 
                 // punctuation
-                '(' | ')' | '{' | '}' | '[' | ']' | ',' | ';' => {
+                '(' | ')' | '{' | '}' | '[' | ']' | ':' | ',' | ';' => {
                     return Some(Ok(Token::Punct(ch, loc)));
                 }
                 

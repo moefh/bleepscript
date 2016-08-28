@@ -9,11 +9,13 @@ pub enum Expression {
     Number(f64, SrcLoc),
     String(Rc<String>, SrcLoc),
     Variable(usize, usize, SrcLoc),
-    FuncDef(Rc<FuncDef>),
+    Map(MapLiteral),
+    Element(Element),
     Assignment(Assignment),
     BinaryOp(BinaryOp),
     PrefixOp(PrefixOp),
     FuncCall(FuncCall),
+    FuncDef(Rc<FuncDef>),
 }
 
 impl Expression {
@@ -22,27 +24,81 @@ impl Expression {
             Expression::Number(n, _)        => Ok(Value::Number(n)),
             Expression::String(ref s, _)    => Ok(Value::String(s.clone())),
             Expression::Variable(vi, ei, _) => env.get_value(vi, ei),
-            Expression::FuncDef(ref f)      => Ok(FuncDef::eval(f.clone(), env)),
+            Expression::Map(ref m)          => m.eval(env),
+            Expression::Element(ref e)      => e.eval(env),
             Expression::Assignment(ref a)   => a.eval(env),
             Expression::BinaryOp(ref op)    => op.eval(env),
             Expression::PrefixOp(ref op)    => op.eval(env),
             Expression::FuncCall(ref f)     => f.eval(env),
+            Expression::FuncDef(ref f)      => Ok(FuncDef::eval(f.clone(), env)),
         }
     }
     
     pub fn loc(&self) -> SrcLoc {
         match *self {
-            Expression::Number(_, ref loc) => loc.clone(),
-            Expression::String(_, ref loc) => loc.clone(),
+            Expression::Number(_, ref loc)      => loc.clone(),
+            Expression::String(_, ref loc)      => loc.clone(),
             Expression::Variable(_, _, ref loc) => loc.clone(),
-            Expression::FuncDef(ref f) => f.loc.clone(),
-            Expression::Assignment(ref a) => a.loc.clone(),
-            Expression::BinaryOp(ref op) => op.loc.clone(),
-            Expression::PrefixOp(ref op) => op.loc.clone(),
-            Expression::FuncCall(ref f) => f.func.loc(),
+            Expression::Map(ref m)              => m.loc.clone(),
+            Expression::Element(ref e)          => e.loc.clone(),
+            Expression::Assignment(ref a)       => a.loc.clone(),
+            Expression::BinaryOp(ref op)        => op.loc.clone(),
+            Expression::PrefixOp(ref op)        => op.loc.clone(),
+            Expression::FuncCall(ref f)         => f.func.loc(),
+            Expression::FuncDef(ref f)          => f.loc.clone(),
         }
     }
 
+}
+
+// =========================================================
+// MapLiteral
+
+pub struct MapLiteral {
+    pub entries : Vec<(Value, Expression)>,
+    loc : SrcLoc,
+}
+
+impl MapLiteral {
+    pub fn new(loc : SrcLoc, entries : Vec<(Value, Expression)>) -> MapLiteral {
+        MapLiteral {
+            entries : entries,
+            loc : loc,
+        }
+    }
+    
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let mut map = value::MapValue::new();
+        for &(ref k, ref v) in &self.entries {
+            map.insert(k.clone(), try!(v.eval(env)));
+        }
+        Ok(Value::Map(Rc::new(map)))
+    }
+}
+
+// =========================================================
+// Element
+
+pub struct Element {
+    pub container : Box<Expression>,
+    pub index : Box<Expression>,
+    loc : SrcLoc,
+}
+
+impl Element {
+    pub fn new(loc : SrcLoc, container : Box<Expression>, index : Box<Expression>) -> Element {
+        Element {
+            container : container,
+            index : index,
+            loc : loc,
+        }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let container = try!(self.container.eval(env));
+        let index = try!(self.index.eval(env));
+        container.index(&index, &self.loc)
+    }
 }
 
 // =========================================================
