@@ -4,9 +4,14 @@ use std::io;
 
 use super::super::src_loc::SrcLoc;
 
+pub enum ReadError {
+    Unknown(String),
+    IOError(io::Error),
+}
+
 enum ParseErrorData {
     Message(String),
-    IOError(io::Error),
+    ReadError(ReadError),
 }
 
 pub struct ParseError {
@@ -22,9 +27,9 @@ impl ParseError {
         }
     }
     
-    pub fn from_io(loc : SrcLoc, err : io::Error) -> ParseError {
+    pub fn from_read(loc : SrcLoc, err : ReadError) -> ParseError {
         ParseError {
-            data : ParseErrorData::IOError(err),
+            data : ParseErrorData::ReadError(err),
             loc : loc,
         }
     }
@@ -35,7 +40,8 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),
-            ParseErrorData::IOError(ref err) => write!(f, "{}: {}", self.loc, err),
+            ParseErrorData::ReadError(ReadError::IOError(ref err)) => write!(f, "{}: {}", self.loc, err),
+            ParseErrorData::ReadError(ReadError::Unknown(ref msg)) => write!(f, "{}: {}", self.loc, msg),
         }
         
     }
@@ -45,7 +51,8 @@ impl fmt::Debug for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),
-            ParseErrorData::IOError(ref err) => write!(f, "{}: {:?}", self.loc, err),
+            ParseErrorData::ReadError(ReadError::IOError(ref err)) => write!(f, "{}: {:?}", self.loc, err),
+            ParseErrorData::ReadError(ReadError::Unknown(ref msg)) => write!(f, "{}: {}", self.loc, msg),
         }
         
     }

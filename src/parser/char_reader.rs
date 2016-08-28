@@ -1,5 +1,6 @@
 
 use std::io;
+use super::errors::ReadError;
 
 pub struct CharReader<Buf : io::BufRead> {
     buf : Buf,
@@ -56,12 +57,7 @@ impl<Buf : io::BufRead> CharReader<Buf> {
         }
     }
     
-}
-
-impl<Buf : io::BufRead> Iterator for CharReader<Buf> {
-    type Item = Result<char, io::Error>;
-    
-    fn next(&mut self) -> Option<Self::Item> {
+    pub fn next(&mut self) -> Option<Result<char, ReadError>> {
         
         if let Some(ch) = self.saved.pop() {
             self.advance_loc(ch);
@@ -89,7 +85,7 @@ impl<Buf : io::BufRead> Iterator for CharReader<Buf> {
                     // read new line
                     let mut str = String::new();
                     match self.buf.read_line(&mut str) {
-                        Err(e) => return Some(Err(e)),
+                        Err(e) => return Some(Err(ReadError::IOError(e))),
                         Ok(0) => { self.col_num += 1; return None; }
                         Ok(_) => {},
                     }

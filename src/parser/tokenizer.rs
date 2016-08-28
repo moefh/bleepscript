@@ -7,6 +7,7 @@ use std::rc::Rc;
 use super::token::{Token, Keyword};
 use super::ops;
 use super::{ParseResult, ParseError};
+use super::errors::ReadError;
 use super::super::src_loc::SrcLoc;
 use super::char_reader::CharReader;
 
@@ -76,7 +77,7 @@ impl Tokenizer {
                     Some(l) => l,
                     None => SrcLoc::new(&*path.to_string_lossy(), 0, 0),
                 };
-                return Err(ParseError::from_io(loc, e))
+                return Err(ParseError::from_read(loc, ReadError::IOError(e)))
             }
         };
         
@@ -98,7 +99,7 @@ impl Tokenizer {
         }
     }
     
-    fn getc(&mut self) -> Option<Result<char, io::Error>> {
+    fn getc(&mut self) -> Option<Result<char, ReadError>> {
         
         loop {
             // try to get a character from the current input
@@ -123,12 +124,7 @@ impl Tokenizer {
         
     }
 
-}
-
-impl Iterator for Tokenizer {
-    type Item = ParseResult<Token>;
-    
-    fn next(&mut self) -> Option<Self::Item> {
+    pub fn next(&mut self) -> Option<ParseResult<Token>> {
         
         if let Some(tok) = self.saved.pop() {
             return Some(Ok(tok));
@@ -138,7 +134,7 @@ impl Iterator for Tokenizer {
             let loc = self.src_loc();
             let ch = match self.getc() {
                 None => return None,
-                Some(Err(e)) => return Some(Err(ParseError::from_io(loc, e))),
+                Some(Err(e)) => return Some(Err(ParseError::from_read(loc, e))),
                 Some(Ok(c)) => c, 
             };
             
@@ -149,7 +145,7 @@ impl Iterator for Tokenizer {
                         match self.getc() {
                             Some(Ok('\n')) | None => break,
                             Some(Ok(_)) => {}
-                            Some(Err(e)) => return Some(Err(ParseError::from_io(self.src_loc(), e))),
+                            Some(Err(e)) => return Some(Err(ParseError::from_read(self.src_loc(), e))),
                         }
                     }
                 }
@@ -172,7 +168,7 @@ impl Iterator for Tokenizer {
                             Some(Ok(c @ '0' ... '9')) => buf.push(c),
                             Some(Ok(c @ '.')) if ! got_point => { got_point = true; buf.push(c); }
                             Some(Ok(c)) => { self.ungetc(c); break; }
-                            Some(Err(e)) => return Some(Err(ParseError::from_io(loc, e))),
+                            Some(Err(e)) => return Some(Err(ParseError::from_read(loc, e))),
                             None => break,
                         }
                     }
@@ -194,7 +190,7 @@ impl Iterator for Tokenizer {
                             Some(Ok(c @ '_')) => buf.push(c),
                             
                             Some(Ok(c)) => { self.ungetc(c); break; }
-                            Some(Err(e)) => return Some(Err(ParseError::from_io(loc, e))),
+                            Some(Err(e)) => return Some(Err(ParseError::from_read(loc, e))),
                             None => break,
                         }
                     }
@@ -217,13 +213,13 @@ impl Iterator for Tokenizer {
                                     Some(Ok('r'))  => buf.push('\r'),
                                     Some(Ok('n'))  => buf.push('\n'),
                                     Some(Ok(c)) => { self.ungetc(c); break; }
-                                    Some(Err(e)) => return Some(Err(ParseError::from_io(loc, e))),
+                                    Some(Err(e)) => return Some(Err(ParseError::from_read(loc, e))),
                                     None => break,
                                 }
                             }
                             Some(Ok('"')) => break,
                             Some(Ok(c)) => buf.push(c),
-                            Some(Err(e)) => return Some(Err(ParseError::from_io(loc, e))),
+                            Some(Err(e)) => return Some(Err(ParseError::from_read(loc, e))),
                             None => break,
                         }
                     }
@@ -246,7 +242,7 @@ impl Iterator for Tokenizer {
                                 }
                             }
                             
-                            Err(e) => return Some(Err(ParseError::from_io(loc, e))),
+                            Err(e) => return Some(Err(ParseError::from_read(loc, e))),
                         }
                     }
 
