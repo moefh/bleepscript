@@ -1,9 +1,25 @@
 
-use std::io;
-use super::errors::ReadError;
+use std::path;
+use std::io::{self, BufRead};
+use std::fs;
 
-pub struct CharReader<Buf : io::BufRead> {
-    buf : Buf,
+use super::errors::ReadError;
+use super::{CharReaderOpener, CharReader};
+
+pub struct FileOpener;
+
+impl CharReaderOpener for FileOpener {
+    fn open(&mut self, path : &path::Path) -> Result<Box<CharReader>, ReadError> {
+        let file = match fs::File::open(path) {
+            Ok(f) => f,
+            Err(e) => return Err(ReadError::IOError(e)),
+        };
+        Ok(Box::new(FileReader::new(io::BufReader::new(file))))
+    }
+}
+
+pub struct FileReader {
+    buf : io::BufReader<fs::File>,
     line_num : u32,
     col_num : u32,
     col_num_before_newline : u32,
@@ -12,9 +28,9 @@ pub struct CharReader<Buf : io::BufRead> {
     saved : Vec<char>,
 }
 
-impl<Buf : io::BufRead> CharReader<Buf> {
-    pub fn new(buf : Buf) -> CharReader<Buf> {
-        CharReader {
+impl FileReader {
+    pub fn new(buf : io::BufReader<fs::File>) -> FileReader {
+        FileReader {
             buf : buf,
             line_num : 1,
             col_num : 1,
@@ -23,19 +39,6 @@ impl<Buf : io::BufRead> CharReader<Buf> {
             pos : 0,
             saved : vec![],
         }
-    }
-    
-    pub fn ungetc(&mut self, ch : char) {
-        self.retreat_loc(ch);
-        self.saved.push(ch);
-    }
-    
-    pub fn line_num(&self) -> u32 {
-        self.line_num
-    }
-
-    pub fn col_num(&self) -> u32 {
-        self.col_num
     }
     
     fn advance_loc(&mut self, ch : char) {
@@ -57,7 +60,23 @@ impl<Buf : io::BufRead> CharReader<Buf> {
         }
     }
     
-    pub fn next(&mut self) -> Option<Result<char, ReadError>> {
+}
+
+impl CharReader for FileReader {
+    fn line_num(&self) -> u32 {
+        self.line_num
+    }
+
+    fn col_num(&self) -> u32 {
+        self.col_num
+    }
+
+    fn ungetc(&mut self, ch : char) {
+        self.retreat_loc(ch);
+        self.saved.push(ch);
+    }
+
+    fn getc(&mut self) -> Option<Result<char, ReadError>> {
         
         if let Some(ch) = self.saved.pop() {
             self.advance_loc(ch);

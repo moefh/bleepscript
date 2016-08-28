@@ -8,7 +8,7 @@ A simple toy scriting language written in Rust, inspired by SICP's
 ```Rust
 let mut bleep = Bleep::new();
 
-bleep.load_script("script_file.bs").unwrap();
+bleep.load_file("script_file.bs").unwrap();
 
 let ret = bleep.call_function("main", &[]).unwrap();
 println!("script returned {}", ret);

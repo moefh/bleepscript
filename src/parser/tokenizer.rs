@@ -1,26 +1,20 @@
 
-use std::io;
-use std::fs;
-use std::path;
 use std::rc::Rc;
 
 use super::token::{Token, Keyword};
 use super::ops;
 use super::{ParseResult, ParseError};
-use super::errors::ReadError;
 use super::super::src_loc::SrcLoc;
-use super::char_reader::CharReader;
+use super::super::readers::{CharReader, ReadError};
 
-
-struct TokenizerInput<Buf : io::BufRead> {
-    chars : CharReader<Buf>,
+struct TokenizerInput {
+    chars : Box<CharReader>,
     loc : SrcLoc,
 }
 
 pub struct Tokenizer {
     ops : ops::OpTable,
-    inputs : Vec<TokenizerInput<io::BufReader<fs::File>>>,
-    base_dir : Option<path::PathBuf>,
+    inputs : Vec<TokenizerInput>,
     saved : Vec<Token>,
     eof : bool,
     no_loc : SrcLoc,
@@ -31,7 +25,6 @@ impl Tokenizer {
         Tokenizer {
             ops : ops::OpTable::new(),
             inputs : vec![],
-            base_dir : None,
             saved : vec![],
             eof : false,
             no_loc : SrcLoc::new("(no file)", 0, 0),
@@ -55,35 +48,10 @@ impl Tokenizer {
         }
     }
 
-    pub fn set_base_dir<P: AsRef<path::Path>>(&mut self, dir : Option<P>) {
-        match dir {
-            Some(dir) => self.base_dir = Some(path::PathBuf::from(dir.as_ref())),
-            None => self.base_dir = None,
-        }
-        //println!("base set to {:?}", self.base_dir);
-    }
-
-    pub fn add_input<P: AsRef<path::Path>>(&mut self, filename : P, loc : Option<SrcLoc>) -> ParseResult<()> {
-        let mut path = path::PathBuf::new();
-        if let Some(ref dir) = self.base_dir {
-            path.push(dir);
-        };
-        path.push(filename);
-        
-        let file = match fs::File::open(&path) {
-            Ok(f) => f,
-            Err(e) => {
-                let loc = match loc {
-                    Some(l) => l,
-                    None => SrcLoc::new(&*path.to_string_lossy(), 0, 0),
-                };
-                return Err(ParseError::from_read(loc, ReadError::IOError(e)))
-            }
-        };
-        
+    pub fn add_input(&mut self, reader : Box<CharReader>, loc : SrcLoc) -> ParseResult<()> {
         let input = TokenizerInput {
-            chars : CharReader::new(io::BufReader::new(file)),
-            loc : SrcLoc::new(&*path.to_string_lossy(), 0, 0),
+            chars : reader,
+            loc : loc,
         };
         self.inputs.push(input);
         Ok(())
@@ -106,7 +74,7 @@ impl Tokenizer {
             match self.inputs.last_mut() {
                 None => return None,
                 Some(input) => {
-                    match input.chars.next() {
+                    match input.chars.getc() {
                         None => {},
                         Some(val) => return Some(val)
                     }

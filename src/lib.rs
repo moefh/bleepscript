@@ -4,7 +4,7 @@
 //!
 //! ```
 //! let mut bleep = Bleep::new();
-//! bleep.load_script("test.tst").unwrap();
+//! bleep.load_file("test.tst").unwrap();
 //! bleep.call_function("main", &[]).unwrap();
 //! ```
 //!
@@ -19,6 +19,7 @@
 //! 
 
 mod errors;
+mod readers;
 mod parser;
 mod ast;
 mod exec;
@@ -35,6 +36,7 @@ pub use self::env::Env;
 pub use self::errors::RunError;
 pub use self::parser::ParseError;
 pub use self::value::Value;
+pub use self::readers::{CharReader, CharReaderOpener, ReadError};
 
 use self::src_loc::SrcLoc;
 use self::sym_tab::SymTab;
@@ -47,7 +49,7 @@ use self::parser::{ops, Parser};
 /// ```
 /// let mut bleep = Bleep::new();
 ///
-/// bleep.load_script("test.tst").unwrap();
+/// bleep.load_file("test.tst").unwrap();
 ///
 /// let ret = bleep.call_function("main", &[]).unwrap();
 /// println!("function returned {}", ret);
@@ -75,14 +77,17 @@ use self::parser::{ops, Parser};
 ///     bleep.set_var("my_function", Value::new_native_func(my_function));
 ///
 ///     // load a script that calls your function
-///     bleep.load_script("test.tst").unwrap();
+///     bleep.load_string("function main() {\
+///                            return my_function(\"Hello!\");\
+///                        }").unwrap();
 ///
 ///     // ...
 /// }
 /// ```
 /// 
 /// It's important to add your functions *before* loading a script that will
-/// use them, or `load_script()` will complain about the function not existing.
+/// use them, or the `load_*()` functions will complain about the function not
+/// existing.
 ///
 pub struct Bleep {
     env : Rc<Env>,
@@ -103,12 +108,31 @@ impl Bleep {
         bleep
     }
     
-    /// Loads a script file, adding its functions to the global environment.
-    pub fn load_script<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
-        let mut parser = self.create_parser();
-        
-        let ast_funcs = try!(parser.parse(filename));
-        
+    /// Loads a script from the given file.
+    pub fn load_file<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
+        let mut parser = Parser::new(Box::new(readers::FileOpener));
+        self.init_parser(&mut parser);
+        self.load_functions(try!(parser.parse(filename)))
+    }
+
+    /// Loads a script from the given string.
+    pub fn load_string(&mut self, string : &str) -> Result<(), ParseError> {
+        let mut parser = Parser::new(Box::new(readers::StringOpener::for_string(string)));
+        self.init_parser(&mut parser);
+        self.load_functions(try!(parser.parse("(string)")))
+    }
+
+    /// Loads a script from the given source, using the given source opener.
+    ///
+    /// The source opener will be used to open the given source and any sources
+    /// included by the script. 
+    pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<CharReaderOpener>) -> Result<(), ParseError> {
+        let mut parser = Parser::new(source_opener);
+        self.init_parser(&mut parser);
+        self.load_functions(try!(parser.parse(source)))
+    }
+    
+    fn load_functions(&mut self, ast_funcs : Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
         // add all function names to the environment, so the order of
         // function definitions doesn't matter
         for ast_func in &ast_funcs {
@@ -193,9 +217,7 @@ impl Bleep {
         self.set_var("%",  Value::new_native_func(native::func_num_mod));
     }
     
-    fn create_parser(&self) -> parser::Parser {
-        let mut parser = Parser::new();
-        
+    fn init_parser(&self, parser : &mut parser::Parser) {
         parser.add_op("=",   10, ops::Assoc::Right);
         parser.add_op("||",  20, ops::Assoc::Left);
         parser.add_op("&&",  30, ops::Assoc::Left);
@@ -213,8 +235,6 @@ impl Bleep {
         parser.add_op("-",   80, ops::Assoc::Prefix);
         parser.add_op("!",   80, ops::Assoc::Prefix);
         parser.add_op("^",   90, ops::Assoc::Right);
-        
-        parser
     }
     
     /// Dumps the global environment (used for debugging).

@@ -1,13 +1,8 @@
 
 use std::fmt;
-use std::io;
 
 use super::super::src_loc::SrcLoc;
-
-pub enum ReadError {
-    Unknown(String),
-    IOError(io::Error),
-}
+use super::super::readers::ReadError;
 
 enum ParseErrorData {
     Message(String),
@@ -40,10 +35,8 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),
-            ParseErrorData::ReadError(ReadError::IOError(ref err)) => write!(f, "{}: {}", self.loc, err),
-            ParseErrorData::ReadError(ReadError::Unknown(ref msg)) => write!(f, "{}: {}", self.loc, msg),
+            ParseErrorData::ReadError(ref err) => write!(f, "{}: {}", self.loc, err),
         }
-        
     }
 }
 
@@ -51,8 +44,7 @@ impl fmt::Debug for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.data {
             ParseErrorData::Message(ref msg) => write!(f, "{}: {}", self.loc, msg),
-            ParseErrorData::ReadError(ReadError::IOError(ref err)) => write!(f, "{}: {:?}", self.loc, err),
-            ParseErrorData::ReadError(ReadError::Unknown(ref msg)) => write!(f, "{}: {}", self.loc, msg),
+            ParseErrorData::ReadError(ref err) => write!(f, "{}: {:?}", self.loc, err),
         }
         
     }

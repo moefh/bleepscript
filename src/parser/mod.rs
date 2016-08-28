@@ -1,5 +1,4 @@
 
-mod char_reader;
 mod token;
 mod tokenizer;
 pub mod ops;
@@ -11,6 +10,7 @@ use std::path;
 
 pub use self::errors::ParseError;
 
+use super::readers::CharReaderOpener;
 use super::src_loc::SrcLoc;
 use self::token::{Token, Keyword};
 use super::ast;
@@ -19,12 +19,16 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 pub struct Parser {
     tokens : tokenizer::Tokenizer,
+    base_dir : Option<path::PathBuf>,
+    opener : Box<CharReaderOpener>,
 }
 
 impl Parser {
-    pub fn new() -> Parser {
+    pub fn new(opener : Box<CharReaderOpener>) -> Parser {
         Parser {
             tokens : tokenizer::Tokenizer::new(),
+            opener : opener,
+            base_dir : None,
         }
     }
     
@@ -468,7 +472,7 @@ impl Parser {
             None => return Err(self.unexpected_eof("string")),
         };
         
-        self.tokens.add_input(&*filename, Some(loc))
+        self.add_input(&*filename, Some(loc))
     }
     
     fn parse_script(&mut self) -> ParseResult<Vec<ast::NamedFuncDef>> {
@@ -486,14 +490,37 @@ impl Parser {
         Ok(funcs)
     }
     
+    fn add_input<P: AsRef<path::Path>>(&mut self, filename : P, loc : Option<SrcLoc>) -> ParseResult<()> {
+        let mut path = path::PathBuf::new();
+        if let Some(ref dir) = self.base_dir {
+            path.push(dir);
+        };
+        path.push(filename);
+        let file_loc = SrcLoc::new(&*path.to_string_lossy(), 0, 0);
+        
+        let reader = match self.opener.open(&path) {
+            Ok(r) => r,
+            Err(e) => match loc {
+                Some(loc) => return Err(ParseError::from_read(loc, e)),
+                None => return Err(ParseError::from_read(file_loc, e)),
+            },
+        };
+        
+        self.tokens.add_input(reader, file_loc)
+    }
+
     pub fn parse<P: AsRef<path::Path>>(&mut self, filename : P) -> ParseResult<Vec<ast::NamedFuncDef>> {
         self.tokens.reset();
 
         let path = filename.as_ref();
 
-        self.tokens.set_base_dir(path.parent());
+        match path.parent() {
+            Some(dir) => self.base_dir = Some(path::PathBuf::from(dir)),
+            None => self.base_dir = None,
+        }
+
         match path.file_name() {
-            Some(file) => try!(self.tokens.add_input(file, None)),
+            Some(file) => try!(self.add_input(file, None)),
             None => return Err(ParseError::new(self.src_loc(), &format!("'{:?}' doesn't specify a file", path))),
         };
 

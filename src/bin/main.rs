@@ -29,11 +29,11 @@ fn main() {
     let mut bleep = Bleep::new();
     bleep.set_var("test_function", Value::new_native_func(test_function));
 
-    if let Err(e) = bleep.load_script(script_filename) {
+    if let Err(e) = bleep.load_file(script_filename) {
         println!("{}", e);
         return;
     }
-    
+
     //bleep.dump_env();
     //bleep.dump_funcs();
     
