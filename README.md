@@ -23,17 +23,24 @@ function main() {
     return 0;
 }
 
-function make_counter(start) {
-    return function() {
-        return start = start + 1;
+function make_counter(num) {
+    return {
+        next : function() {
+            num = num + 1;
+        },
+
+        read : function() {
+            return num;
+        },
     };
 }
 
 function test() {
     var c1 = make_counter(0);
     var c2 = make_counter(10);
-    printf("%d, %d\n", c1(), c2());    # prints 1, 11
-    printf("%d, %d\n", c1(), c2());    # prints 2, 12
+    c1.next();
+    c2.next();
+    printf("%d, %d\n", c1.read(), c2.read());    # prints 1, 11
 
     if (c1() == 3) {
         printf("ok!\n");
