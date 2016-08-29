@@ -22,6 +22,9 @@ pub enum Value {
     /// String
     String(Rc<String>),
     
+    /// Vector
+    Vec(Rc<Vec<Value>>),
+    
     /// Map
     Map(Rc<MapValue>),
     
@@ -47,6 +50,18 @@ impl Value {
                 Some(v) => Ok(v),
                 None => Err(RunError::new_script(loc.clone(), &format!("map doesn't contain key '{}'", index)))
             },
+
+            Value::Vec(ref v) => {
+                let i = match index.as_i64() {
+                    Ok(i) => i,
+                    Err(e) => return Err(e.native_to_script(loc)),
+                };
+                match v.get(i as usize) {
+                    Some(v) => Ok(v.clone()),
+                    None => Err(RunError::new_script(loc.clone(), &format!("vector index out of bounds: {}", index)))
+                }
+            }
+
             _ => Err(RunError::new_script(loc.clone(), &format!("trying to index non-container object '{}'", self)))
         }
     }
@@ -73,6 +88,7 @@ impl Value {
             Value::Bool(b)        => b,
             Value::Number(n)      => n != 0.0,   // should this be always true?
             Value::String(_)      => true,
+            Value::Vec(_)         => true,
             Value::Map(_)         => true,
             Value::Closure(_)     => true,
             Value::NativeFunc(_)  => true,
@@ -85,6 +101,7 @@ impl Value {
             Value::Bool(b)        => if b { Ok(1) } else { Ok(0) },
             Value::Number(n)      => Ok(n as i64),
             Value::String(_)      => Err(RunError::new_native_str("can't convert string to i64")),
+            Value::Vec(_)         => Err(RunError::new_native_str("can't convert vector to i64")),
             Value::Map(_)         => Err(RunError::new_native_str("can't convert map to i64")),
             Value::Closure(_)     => Err(RunError::new_native_str("can't convert closure to i64")),
             Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to i64")),
@@ -97,6 +114,7 @@ impl Value {
             Value::Bool(b)        => if b { Ok(1.0) } else { Ok(0.0) },
             Value::Number(n)      => Ok(n),
             Value::String(_)      => Err(RunError::new_native_str("can't convert string to f64")),
+            Value::Vec(_)         => Err(RunError::new_native_str("can't convert vector to f64")),
             Value::Map(_)         => Err(RunError::new_native_str("can't convert map to f64")),
             Value::Closure(_)     => Err(RunError::new_native_str("can't convert closure to f64")),
             Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to f64")),
@@ -115,6 +133,7 @@ impl fmt::Display for Value {
             Value::Bool(b)           => write!(f, "{}", b),
             Value::Number(n)         => write!(f, "{}", n),
             Value::String(ref s)     => write!(f, "{}", s),
+            Value::Vec(ref v)        => write!(f, "{:?}", v),
             Value::Map(ref m)        => write!(f, "{}", m),
             Value::Closure(ref c)    => write!(f, "{}", c),
             Value::NativeFunc(ref n) => write!(f, "{}", n),

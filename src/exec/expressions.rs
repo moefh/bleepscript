@@ -9,6 +9,7 @@ pub enum Expression {
     Number(f64, SrcLoc),
     String(Rc<String>, SrcLoc),
     Variable(usize, usize, SrcLoc),
+    Vec(VecLiteral),
     Map(MapLiteral),
     Element(Element),
     Assignment(Assignment),
@@ -24,6 +25,7 @@ impl Expression {
             Expression::Number(n, _)        => Ok(Value::Number(n)),
             Expression::String(ref s, _)    => Ok(Value::String(s.clone())),
             Expression::Variable(vi, ei, _) => env.get_value(vi, ei),
+            Expression::Vec(ref v)          => v.eval(env),
             Expression::Map(ref m)          => m.eval(env),
             Expression::Element(ref e)      => e.eval(env),
             Expression::Assignment(ref a)   => a.eval(env),
@@ -39,6 +41,7 @@ impl Expression {
             Expression::Number(_, ref loc)      => loc.clone(),
             Expression::String(_, ref loc)      => loc.clone(),
             Expression::Variable(_, _, ref loc) => loc.clone(),
+            Expression::Vec(ref v)              => v.loc.clone(),
             Expression::Map(ref m)              => m.loc.clone(),
             Expression::Element(ref e)          => e.loc.clone(),
             Expression::Assignment(ref a)       => a.loc.clone(),
@@ -49,6 +52,31 @@ impl Expression {
         }
     }
 
+}
+
+// =========================================================
+// VecLiteral
+
+pub struct VecLiteral {
+    pub vec : Vec<Expression>,
+    loc : SrcLoc,
+}
+
+impl VecLiteral {
+    pub fn new(loc : SrcLoc, vec : Vec<Expression>) -> VecLiteral {
+        VecLiteral {
+            vec : vec,
+            loc : loc,
+        }
+    }
+    
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let mut vec = vec![];
+        for i in &self.vec {
+            vec.push(try!(i.eval(env)));
+        }
+        Ok(Value::Vec(Rc::new(vec)))
+    }
 }
 
 // =========================================================

@@ -201,6 +201,35 @@ impl Parser {
         Ok(ast::VarDecl::new(loc, ident, expr))
     }
 
+    // [ expr, ... ]
+    fn parse_vec_literal(&mut self, loc : SrcLoc) -> ParseResult<ast::VecLiteral> {
+        let mut vec : Vec<ast::Expression> = vec![];
+        
+        loop {
+            // read value or ']'
+            match self.get_token() {
+                Some(Ok(Token::Punct(']', _))) => break,
+                Some(Ok(tok)) => {
+                    self.unget_token(tok);
+                    vec.push(try!(self.parse_expr(false, &[']', ','])));
+                }
+                Some(Err(e)) => return Err(e),
+                None => return Err(self.unexpected_eof("']' or expression")),
+            }
+            
+            // read ']' or ','
+            match self.get_token() {
+                Some(Ok(Token::Punct(']', _))) => break,
+                Some(Ok(Token::Punct(',', _))) => {},
+                Some(Ok(tok)) => return Err(self.unexpected_tok(tok, "',' or ']'")),
+                Some(Err(e)) => return Err(e),
+                None => return Err(self.unexpected_eof("',' or ']'")),
+            }
+        }
+        
+        Ok(ast::VecLiteral::new(loc, vec))
+    }
+
     // { ident|string : expr, ... }
     fn parse_map_literal(&mut self, loc : SrcLoc) -> ParseResult<ast::MapLiteral> {
         let mut entries : Vec<(Rc<String>, ast::Expression)> = vec![];
@@ -308,7 +337,8 @@ impl Parser {
 
                 Some(Ok(Token::Punct('[', loc))) => {
                     if expect_opn {
-                        return Err(ParseError::new(loc, "TODO: parse array literal"));
+                        opns.push(ast::Expression::Vec(try!(self.parse_vec_literal(loc))));
+                        expect_opn = false;
                     } else {
                         let prec = self.el_index_prec;
                         try!(self.resolve_stack(&mut opns, &mut oprs, prec));
@@ -329,6 +359,24 @@ impl Parser {
                     } else {
                         return Err(self.unexpected_any(loc, "{", "operator"));
                     }
+                }
+                
+                Some(Ok(Token::Punct(ref ch, ref loc))) => {
+                    return if stop.contains(ch) {
+                        try!(self.resolve_stack(&mut opns, &mut oprs, std::i32::MIN));
+                        match opns.len() {
+                            0 => Err(ParseError::new(loc.clone(), "expected expression")),
+                            1 => {
+                                if ! consume_stop {
+                                    self.unget_token(Token::Punct(*ch, loc.clone()));
+                                }
+                                Ok(opns.pop().unwrap())
+                            }
+                            _ => Err(ParseError::new(loc.clone(), "syntax error (stack not empty!)")),
+                        }
+                    } else {
+                        Err(self.unexpected_any(loc.clone(), &ch.to_string(), "expression"))
+                    };
                 }
                 
                 Some(Ok(Token::Operator(op, loc))) => {
@@ -385,24 +433,6 @@ impl Parser {
                     }
                 }
 
-                Some(Ok(Token::Punct(ref ch, ref loc))) => {
-                    return if stop.contains(ch) {
-                        try!(self.resolve_stack(&mut opns, &mut oprs, std::i32::MIN));
-                        match opns.len() {
-                            0 => Err(ParseError::new(loc.clone(), "expected expression")),
-                            1 => {
-                                if ! consume_stop {
-                                    self.unget_token(Token::Punct(*ch, loc.clone()));
-                                }
-                                Ok(opns.pop().unwrap())
-                            }
-                            _ => Err(ParseError::new(loc.clone(), "syntax error (stack not empty!)")),
-                        }
-                    } else {
-                        Err(self.unexpected_any(loc.clone(), &ch.to_string(), "expression"))
-                    };
-                }
-                
                 Some(Ok(tok)) => return Err(self.unexpected_tok(tok, "expression")),
                 Some(Err(e)) => return Err(e),
                 None => return Err(self.unexpected_eof("expression")),

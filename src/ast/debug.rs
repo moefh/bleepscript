@@ -38,6 +38,7 @@ impl DebugIndent for Expression {
             Expression::Number(n, _)      => write!(f, "{}", n),
             Expression::String(ref s, _)  => write!(f, "{:?}", **s),
             Expression::Ident(ref i, _)   => write!(f, "{}", **i),
+            Expression::Vec(ref v)        => v.fmt_indent(f, indent),
             Expression::Map(ref m)        => m.fmt_indent(f, indent),
             Expression::Element(ref e)    => e.fmt_indent(f, indent),
             Expression::BinaryOp(ref op)  => op.fmt_indent(f, indent),
@@ -45,6 +46,19 @@ impl DebugIndent for Expression {
             Expression::FuncCall(ref c)   => c.fmt_indent(f, indent),
             Expression::FuncDef(ref d)    => d.fmt_indent(f, indent),
         }
+    }
+}
+
+impl DebugIndent for VecLiteral {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(writeln!(f, "["));
+        for i in &self.vec {
+            try!(write!(f, "{1:0$}", indent + 2, ""));
+            try!(i.fmt_indent(f, indent + 2));
+            try!(writeln!(f, ","));
+        }
+        try!(write!(f, "{1:0$}", indent, ""));
+        write!(f, "]")
     }
 }
 

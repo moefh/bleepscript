@@ -13,7 +13,14 @@ function map_literal() {
     printf("x.a = '%s'\n", x.a);
     printf("x.c = '%s'\n", x.c);
     x.c.read();
-    printf("printf = %s\n", printf);
+}
+
+function vec_literal() {
+    var x = [ 1, 2, 3, "banana", function(x) { printf("x is %s\n", x); } ];
+    printf("%s\n", x);
+    printf("x[0] = '%s'\n", x[0]);
+    printf("x[3] = '%s'\n", x[3]);
+    x[4]("hello");
 }
 
 function make_counter(start) {
@@ -33,6 +40,14 @@ function main(arg) {
     printf("Argument from command line: '%s'\n", arg);
 
     map_literal();
+    vec_literal();
+    
+    printf("%s\n", {
+        good_things : [ "rainbow", "pony", "unicorn" ],
+        bad_things : [ "grapefruit" ],
+        blue_things : "blue paint",
+    });
+    printf("two is %s\n", [1,2,3][2]=1);
     
     var c1 = make_counter(0);
     var c2 = make_counter(10);

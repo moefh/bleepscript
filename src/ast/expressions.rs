@@ -12,6 +12,7 @@ pub enum Expression {
     Number(f64, SrcLoc),
     String(Rc<String>, SrcLoc),
     Ident(Rc<String>, SrcLoc),
+    Vec(VecLiteral),
     Map(MapLiteral),
     Element(Element),
     BinaryOp(BinaryOp),
@@ -27,6 +28,7 @@ impl Expression {
             Expression::String(_, ref loc) |
             Expression::Ident(_, ref loc) => loc.clone(),
             
+            Expression::Vec(ref v) => v.loc.clone(),
             Expression::Map(ref m) => m.loc.clone(),
             Expression::Element(ref e) => e.loc.clone(),
             Expression::BinaryOp(ref op) => op.loc.clone(),
@@ -50,6 +52,7 @@ impl Expression {
                 }
             }
 
+            Expression::Vec(ref v) => Ok(exec::Expression::Vec(try!(v.analyze(sym, st)))),
             Expression::Map(ref m) => Ok(exec::Expression::Map(try!(m.analyze(sym, st)))),
             Expression::Element(ref e) => Ok(exec::Expression::Element(try!(e.analyze(sym, st)))),
             
@@ -129,6 +132,33 @@ impl MapLiteral {
             entries.push((k, v));
         }
         Ok(exec::MapLiteral::new(self.loc.clone(), entries))
+    }
+}
+
+// =========================================================
+// VecLiteral
+
+pub struct VecLiteral {
+    pub vec : Vec<Expression>,
+    loc : SrcLoc,
+}
+
+impl VecLiteral {
+    pub fn new(loc : SrcLoc, vec : Vec<Expression>) -> VecLiteral {
+        VecLiteral {
+            vec : vec,
+            loc : loc,
+        }
+    }
+    
+    pub fn analyze(&self, sym : &Rc<SymTab>, st : &mut analysis::State) -> ParseResult<exec::VecLiteral> {
+        //println!("VecLiteral::analyze(): {:?}\n", self);
+
+        let mut entries : Vec<exec::Expression> = vec![];
+        for i in &self.vec {
+            entries.push(try!(i.analyze(sym, st)));
+        }
+        Ok(exec::VecLiteral::new(self.loc.clone(), entries))
     }
 }
 
