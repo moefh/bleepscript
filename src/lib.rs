@@ -179,14 +179,14 @@ impl Bleep {
     }
     
     fn load_functions(&mut self, ast_funcs : Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
-        // add all function names to the environment, so the order of
-        // function definitions doesn't matter
+        // all function names must be added to the environment before
+        // any function is analyzed, so functions can refer to each
+        // other regardless of the order in which they're defined
         for ast_func in &ast_funcs {
             self.set_var(&*ast_func.name, Value::Null);
             //println!("{:?}", ast_func);
         }
         
-        // analyze each function and add the the result to the environment
         for ast_func in ast_funcs {
             let func = Rc::new(try!(ast_func.analyze(&self.sym_tab, &mut ast::analysis::State::new())));
             let closure = exec::FuncDef::eval(func.clone(), &self.env);

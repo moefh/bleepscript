@@ -61,11 +61,12 @@ impl RunError {
 impl fmt::Display for RunError {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
-            RunError::ScriptException(ref sl, ref v) => write!(f, "{}: {}", sl, v),
-            RunError::Panic(None, ref s) => write!(f, "{}", s),
-            RunError::Panic(Some(ref sl), ref s) => write!(f, "{}: {}", sl, s),
-            RunError::NativeException(ref v) => write!(f, "{}", v),
-            RunError::Break => write!(f, "break"),
+            RunError::Panic(None, ref s)             => write!(f, "Panic: {}", s),
+            RunError::Panic(Some(ref sl), ref s)     => write!(f, "{}: Panic: {}", sl, s),
+            RunError::NativeException(ref v)         => write!(f, "Error: {}", v),
+            RunError::ScriptException(ref sl, ref v) => write!(f, "{}: Error: {}", sl, v),
+            
+            RunError::Break         => write!(f, "break"),
             RunError::Return(ref v) => write!(f, "return {}", v),
         }
     }    

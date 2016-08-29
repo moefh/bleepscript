@@ -39,6 +39,8 @@ function main(arg) {
     printf("Hello, world!\n");
     printf("Argument from command line: '%s'\n", arg);
 
+    [1,2][0] = 3;
+
     map_literal();
     vec_literal();
     

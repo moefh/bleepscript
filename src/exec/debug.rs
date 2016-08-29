@@ -30,7 +30,8 @@ impl DebugIndent for Expression {
             Expression::Vec(ref v)          => v.fmt_indent(f, indent),
             Expression::Map(ref m)          => m.fmt_indent(f, indent),
             Expression::Element(ref e)      => e.fmt_indent(f, indent),
-            Expression::Assignment(ref a)   => a.fmt_indent(f, indent),
+            Expression::VarAssign(ref a)    => a.fmt_indent(f, indent),
+            Expression::ElemAssign(ref a)   => a.fmt_indent(f, indent),
             Expression::BinaryOp(ref op)    => op.fmt_indent(f, indent), 
             Expression::PrefixOp(ref op)    => op.fmt_indent(f, indent),
             Expression::FuncCall(ref c)     => c.fmt_indent(f, indent),
@@ -110,9 +111,19 @@ impl DebugIndent for PrefixOp {
     }
 }
 
-impl DebugIndent for Assignment {
+impl DebugIndent for VarAssign {
     fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
         try!(write!(f, "<{}@{}> = ", self.var_index, self.env_index));
+        self.val.fmt_indent(f, indent)
+    }
+}
+
+impl DebugIndent for ElemAssign {
+    fn fmt_indent(&self, f : &mut fmt::Formatter, indent : usize) -> Result<(), fmt::Error> {
+        try!(self.container.fmt_indent(f, indent));
+        try!(write!(f, "["));
+        try!(self.index.fmt_indent(f, indent));
+        try!(write!(f, "] = "));
         self.val.fmt_indent(f, indent)
     }
 }

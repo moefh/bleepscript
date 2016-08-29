@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use super::Block;
 use super::super::{value, Value, RunError};
@@ -12,7 +13,8 @@ pub enum Expression {
     Vec(VecLiteral),
     Map(MapLiteral),
     Element(Element),
-    Assignment(Assignment),
+    VarAssign(VarAssign),
+    ElemAssign(ElemAssign),
     BinaryOp(BinaryOp),
     PrefixOp(PrefixOp),
     FuncCall(FuncCall),
@@ -28,7 +30,8 @@ impl Expression {
             Expression::Vec(ref v)          => v.eval(env),
             Expression::Map(ref m)          => m.eval(env),
             Expression::Element(ref e)      => e.eval(env),
-            Expression::Assignment(ref a)   => a.eval(env),
+            Expression::VarAssign(ref a)    => a.eval(env),
+            Expression::ElemAssign(ref a)   => a.eval(env),
             Expression::BinaryOp(ref op)    => op.eval(env),
             Expression::PrefixOp(ref op)    => op.eval(env),
             Expression::FuncCall(ref f)     => f.eval(env),
@@ -44,7 +47,8 @@ impl Expression {
             Expression::Vec(ref v)              => v.loc.clone(),
             Expression::Map(ref m)              => m.loc.clone(),
             Expression::Element(ref e)          => e.loc.clone(),
-            Expression::Assignment(ref a)       => a.loc.clone(),
+            Expression::VarAssign(ref a)        => a.loc.clone(),
+            Expression::ElemAssign(ref a)       => a.loc.clone(),
             Expression::BinaryOp(ref op)        => op.loc.clone(),
             Expression::PrefixOp(ref op)        => op.loc.clone(),
             Expression::FuncCall(ref f)         => f.func.loc(),
@@ -75,7 +79,7 @@ impl VecLiteral {
         for i in &self.vec {
             vec.push(try!(i.eval(env)));
         }
-        Ok(Value::Vec(Rc::new(vec)))
+        Ok(Value::Vec(Rc::new(RefCell::new(vec))))
     }
 }
 
@@ -96,11 +100,11 @@ impl MapLiteral {
     }
     
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
-        let mut map = value::MapValue::new();
+        let mut vec = vec![];
         for &(ref k, ref v) in &self.entries {
-            map.insert(k.clone(), try!(v.eval(env)));
+            vec.push((k.clone(), try!(v.eval(env))));
         }
-        Ok(Value::Map(Rc::new(map)))
+        Ok(Value::Map(Rc::new(value::MapValue::from_entries(vec))))
     }
 }
 
@@ -125,7 +129,7 @@ impl Element {
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
         let container = try!(self.container.eval(env));
         let index = try!(self.index.eval(env));
-        container.index(&index, &self.loc)
+        container.get_element(&index, &self.loc)
     }
 }
 
@@ -158,18 +162,47 @@ impl FuncCall {
 }
 
 // =========================================================
-// Assignment
+// ElemAssign
 
-pub struct Assignment {
+pub struct ElemAssign {
+    pub container : Box<Expression>,
+    pub index : Box<Expression>,
+    pub val : Box<Expression>,
+    loc : SrcLoc,
+}
+
+impl ElemAssign {
+    pub fn new(loc : SrcLoc, container : Box<Expression>, index : Box<Expression>, val : Box<Expression>) -> ElemAssign {
+        ElemAssign {
+            container : container,
+            index : index,
+            val : val,
+            loc : loc,
+        }
+    }
+
+    pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
+        let mut c = try!(self.container.eval(env));
+        let index = try!(self.index.eval(env));
+        let val = try!(self.val.eval(env));
+        try!(c.set_element(index, val.clone(), &self.loc));
+        Ok(val)
+    }
+}
+
+// =========================================================
+// VarAssign
+
+pub struct VarAssign {
     pub var_index : usize,
     pub env_index : usize,
     pub val : Box<Expression>,
     loc : SrcLoc,
 }
 
-impl Assignment {
-    pub fn new(loc : SrcLoc, var_index : usize, env_index : usize, val : Box<Expression>) -> Assignment {
-        Assignment {
+impl VarAssign {
+    pub fn new(loc : SrcLoc, var_index : usize, env_index : usize, val : Box<Expression>) -> VarAssign {
+        VarAssign {
             var_index : var_index,
             env_index : env_index,
             val : val,

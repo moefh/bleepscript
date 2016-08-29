@@ -1,3 +1,5 @@
+use std::slice;
+use std::cell::{Ref, RefCell};
 use std::fmt;
 use std::cmp;
 use std::rc::Rc;
@@ -23,7 +25,7 @@ pub enum Value {
     String(Rc<String>),
     
     /// Vector
-    Vec(Rc<Vec<Value>>),
+    Vec(Rc<RefCell<Vec<Value>>>),
     
     /// Map
     Map(Rc<MapValue>),
@@ -44,7 +46,7 @@ impl Value {
         Value::NativeFunc(NativeFunc::new(f))
     }
     
-    pub fn index(&self, index : &Value, loc : &SrcLoc) -> Result<Value, RunError> {
+    pub fn get_element(&self, index : &Value, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
             Value::Map(ref m) => match m.get(index) {
                 Some(v) => Ok(v),
@@ -53,16 +55,43 @@ impl Value {
 
             Value::Vec(ref v) => {
                 let i = match index.as_i64() {
-                    Ok(i) => i,
+                    Ok(i) => i as usize,
                     Err(e) => return Err(e.native_to_script(loc)),
                 };
-                match v.get(i as usize) {
+                match v.borrow().get(i) {
                     Some(v) => Ok(v.clone()),
                     None => Err(RunError::new_script(loc.clone(), &format!("vector index out of bounds: {}", index)))
                 }
             }
 
-            _ => Err(RunError::new_script(loc.clone(), &format!("trying to index non-container object '{}'", self)))
+            _ => Err(RunError::new_script(loc.clone(), &format!("trying to read element of non-container object '{}'", self)))
+        }
+    }
+
+    pub fn set_element(&mut self, index : Value, val : Value, loc : &SrcLoc) -> Result<(), RunError> {
+        match *self {
+            Value::Map(ref mut m) => {
+                m.set(index, val);
+                Ok(())
+            }
+
+            Value::Vec(ref mut v) => {
+                let i = match index.as_i64() {
+                    Ok(i) => i as usize,
+                    Err(e) => return Err(e.native_to_script(loc)),
+                };
+                let mut v = v.borrow_mut();
+                if i < v.len() {
+                    v[i] = val.clone();
+                } else if i == v.len() {
+                    v.push(val.clone());
+                } else {
+                    return Err(RunError::new_script(loc.clone(), &format!("vector index out of bounds: {}", index)))
+                }
+                Ok(())
+            }
+
+            _ => Err(RunError::new_script(loc.clone(), &format!("trying to assign to element of non-container object '{}'", self)))
         }
     }
     
@@ -133,7 +162,7 @@ impl fmt::Display for Value {
             Value::Bool(b)           => write!(f, "{}", b),
             Value::Number(n)         => write!(f, "{}", n),
             Value::String(ref s)     => write!(f, "{}", s),
-            Value::Vec(ref v)        => write!(f, "{:?}", v),
+            Value::Vec(ref v)        => write!(f, "{:?}", v.borrow()),
             Value::Map(ref m)        => write!(f, "{}", m),
             Value::Closure(ref c)    => write!(f, "{}", c),
             Value::NativeFunc(ref n) => write!(f, "{}", n),
@@ -223,34 +252,61 @@ impl cmp::PartialEq for NativeFunc {
 
 #[derive(PartialEq)]
 pub struct MapValue {
-    entries : Vec<(Value, Value)>,
+    entries : RefCell<Vec<(Value, Value)>>,
 }
 
 impl MapValue {
     pub fn new() -> MapValue {
         MapValue {
-            entries : vec![],
+            entries : RefCell::new(vec![]),
+        }
+    }
+
+    pub fn from_entries(entries : Vec<(Value, Value)>) -> MapValue {
+        MapValue {
+            entries : RefCell::new(entries),
         }
     }
     
-    pub fn insert(&mut self, key : Value, val : Value) {
-        self.entries.retain(|&(ref k, _)| *k != key);
-        self.entries.push((key, val));
+    //pub fn insert(&mut self, key : Value, val : Value) {
+    pub fn set(&self, key : Value, val : Value) {
+        let mut e = self.entries.borrow_mut();
+        e.retain(|&(ref k, _)| *k != key);
+        e.push((key, val));
     }
     
     pub fn get(&self, key : &Value) -> Option<Value> {
-        if let Some(&(_, ref v)) = self.entries.iter().find(|&&(ref k, _)| *k == *key) {
+        if let Some(&(_, ref v)) = self.entries.borrow().iter().find(|&&(ref k, _)| *k == *key) {
             Some(v.clone())
         } else {
             None
         }
+    }
+    
+    pub fn iter(&self) -> MapValueIntoIterator<(Value, Value)> {
+        MapValueIntoIterator {
+            r : self.entries.borrow(),
+        }
+    }
+}
+
+pub struct MapValueIntoIterator<'a, T : 'a> {
+    r: Ref<'a, Vec<T>>,
+}
+
+impl<'a, 'b : 'a, T : 'a> IntoIterator for &'b MapValueIntoIterator<'a, T> {
+    type IntoIter = slice::Iter<'a, T>;
+    type Item = &'a T;
+
+    fn into_iter(self) -> slice::Iter<'a, T> {
+        self.r.iter()
     }
 }
 
 impl fmt::Display for MapValue {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
         try!(write!(f, "{{ "));
-        for &(ref k, ref v) in &self.entries {
+        for &(ref k, ref v) in &self.iter() {
             try!(write!(f, "\"{}\" : {}, ", k, v));
         }
         write!(f, "}}")

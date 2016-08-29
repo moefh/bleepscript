@@ -71,22 +71,41 @@ impl Expression {
     
     fn analyze_assignment(&self,
                           sym : &Rc<SymTab>,
-                          var : &Expression,
+                          lhs : &Expression,
                           val : &Expression,
                           st : &mut analysis::State) -> ParseResult<exec::Expression> {
-        let (vi, ei) = match *var {
+        match *lhs {
             Expression::Ident(ref id, ref loc) => {
                 match sym.get_name(&*id) {
-                    Some((vi, ei)) => (vi, ei),
+                    Some((vi, ei)) => {
+                        let val = try!(val.analyze(sym, st));
+                        return Ok(exec::Expression::VarAssign(exec::VarAssign::new(self.loc(), vi, ei, Box::new(val))))
+                    }
                     None => return Err(ParseError::new(loc.clone(), &format!("assignment to undeclared variable '{}'", id)))
                 }
             }
             
-            _ => return Err(ParseError::new(self.loc().clone(), "assignment to invalid target"))
-        };
-        
-        let val = try!(val.analyze(sym, st));
-        Ok(exec::Expression::Assignment(exec::Assignment::new(self.loc(), vi, ei, Box::new(val))))
+            Expression::Element(ref e) => {
+                let cont = try!(e.container.analyze(sym, st));
+                let index = try!(e.index.analyze(sym, st));
+                let val = try!(val.analyze(sym, st));
+                return Ok(exec::Expression::ElemAssign(exec::ElemAssign::new(self.loc(), Box::new(cont), Box::new(index), Box::new(val))))
+            }
+
+            Expression::BinaryOp(ref op) => {
+                if *op.op == "." {
+                    if let Expression::Ident(ref index, ref loc) = *op.right {
+                        let cont = try!(op.left.analyze(sym, st));
+                        let index = exec::Expression::String(index.clone(), loc.clone());
+                        let val = try!(val.analyze(sym, st));
+                        return Ok(exec::Expression::ElemAssign(exec::ElemAssign::new(self.loc(), Box::new(cont), Box::new(index), Box::new(val))))
+                    }
+                }
+            }
+            
+            _ => (),
+        }
+        Err(ParseError::new(self.loc().clone(), "assignment to invalid target"))
     }
 
     fn analyze_dot(&self,
