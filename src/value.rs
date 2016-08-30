@@ -4,9 +4,9 @@ use std::fmt;
 use std::cmp;
 use std::rc::Rc;
 
+use super::exec;
 use super::env::Env;
 use super::src_loc::SrcLoc;
-use super::exec::FuncDef;
 use super::RunError;
 
 /// A value of the script language.
@@ -30,8 +30,8 @@ pub enum Value {
     /// Map
     Map(Rc<MapValue>),
     
-    /// Closure (the result of evaluating a function definition)
-    Closure(Closure),
+    /// AST Closure (the result of evaluating a function definition)
+    ASTClosure(exec::Closure),
     
     /// Rust function 
     NativeFunc(NativeFunc),
@@ -97,7 +97,7 @@ impl Value {
     
     pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
-            Value::Closure(ref c) => match c.apply(args) {
+            Value::ASTClosure(ref c) => match c.apply(args) {
                 Err(RunError::Return(v)) => Ok(v),
                 x => x,
             },
@@ -119,7 +119,7 @@ impl Value {
             Value::String(_)      => true,
             Value::Vec(_)         => true,
             Value::Map(_)         => true,
-            Value::Closure(_)     => true,
+            Value::ASTClosure(_)  => true,
             Value::NativeFunc(_)  => true,
         }
     }
@@ -132,7 +132,7 @@ impl Value {
             Value::String(_)      => Err(RunError::new_native_str("can't convert string to i64")),
             Value::Vec(_)         => Err(RunError::new_native_str("can't convert vector to i64")),
             Value::Map(_)         => Err(RunError::new_native_str("can't convert map to i64")),
-            Value::Closure(_)     => Err(RunError::new_native_str("can't convert closure to i64")),
+            Value::ASTClosure(_)  => Err(RunError::new_native_str("can't convert closure to i64")),
             Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to i64")),
         }
     }
@@ -145,7 +145,7 @@ impl Value {
             Value::String(_)      => Err(RunError::new_native_str("can't convert string to f64")),
             Value::Vec(_)         => Err(RunError::new_native_str("can't convert vector to f64")),
             Value::Map(_)         => Err(RunError::new_native_str("can't convert map to f64")),
-            Value::Closure(_)     => Err(RunError::new_native_str("can't convert closure to f64")),
+            Value::ASTClosure(_)  => Err(RunError::new_native_str("can't convert closure to f64")),
             Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to f64")),
         }
     }
@@ -164,7 +164,7 @@ impl fmt::Display for Value {
             Value::String(ref s)     => write!(f, "{}", s),
             Value::Vec(ref v)        => write!(f, "{:?}", v.borrow()),
             Value::Map(ref m)        => write!(f, "{}", m),
-            Value::Closure(ref c)    => write!(f, "{}", c),
+            Value::ASTClosure(ref c) => write!(f, "{}", c),
             Value::NativeFunc(ref n) => write!(f, "{}", n),
         }
     }
@@ -173,43 +173,6 @@ impl fmt::Display for Value {
 impl fmt::Debug for Value {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{}", self)
-    }
-}
-
-#[derive(Clone)]
-pub struct Closure {
-    func : Rc<FuncDef>,
-    env : Rc<Env>,
-}
-
-impl Closure {
-    pub fn new(func : Rc<FuncDef>, env : Rc<Env>) -> Closure {
-        Closure {
-            func : func,
-            env : env,
-        }
-    }
-    
-    pub fn apply(&self, args : &[Value]) -> Result<Value, RunError> {
-        if args.len() != self.func.num_params {
-            return Err(RunError::new_script(self.func.loc.clone(),
-                                            &format!("invalid number of arguments passed (expected {}, got {})",
-                                                     self.func.num_params, args.len())))
-        }
-        let new_env = Rc::new(Env::new(self.env.clone(), args));
-        self.func.block.eval(&new_env)
-    }
-}
-
-impl fmt::Display for Closure {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "<closure@{}>", self.func.loc)
-    }
-}
-
-impl cmp::PartialEq for Closure {
-    fn eq(&self, other: &Closure) -> bool {
-        self as *const Closure == other as *const Closure
     }
 }
 

@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use super::Expression;
 use super::super::{Value, RunError};
-use super::super::env::Env;
+use super::super::Env;
 use super::super::src_loc::SrcLoc;
 
 

@@ -24,12 +24,13 @@ mod errors;
 mod readers;
 mod parser;
 mod ast;
-mod exec;
 mod src_loc;
 mod env;
 mod sym_tab;
 mod value;
 mod native;
+mod loader;
+pub mod exec;
 
 use std::rc::Rc;
 use std::path;
@@ -40,9 +41,9 @@ pub use self::parser::ParseError;
 pub use self::value::Value;
 pub use self::readers::{CharReader, CharReaderOpener, ReadError};
 
+use self::loader::BleepLoader;
 use self::src_loc::SrcLoc;
 use self::sym_tab::SymTab;
-use self::parser::{ops, Parser};
 
 /// Script loader and executor.
 ///
@@ -140,9 +141,9 @@ impl Bleep {
     /// }
     /// ```
     pub fn load_file<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
-        let mut parser = Parser::new(Box::new(readers::FileOpener));
-        self.init_parser(&mut parser);
-        self.load_functions(try!(parser.parse(filename)))
+        let mut loader = BleepLoader::new();
+        try!(loader.load_file(filename));
+        self.load_functions(loader.get_functions())
     }
 
     /// Loads a script from the given string.
@@ -163,9 +164,9 @@ impl Bleep {
     /// assert_eq!(result, Value::Number(42.0));
     /// ```
     pub fn load_string(&mut self, string : &str) -> Result<(), ParseError> {
-        let mut parser = Parser::new(Box::new(readers::StringOpener::for_string(string)));
-        self.init_parser(&mut parser);
-        self.load_functions(try!(parser.parse("(string)")))
+        let mut loader = BleepLoader::new();
+        try!(loader.load_string(string));
+        self.load_functions(loader.get_functions())
     }
 
     /// Loads a script from the given source, using the given source opener.
@@ -173,16 +174,16 @@ impl Bleep {
     /// The source opener will be used to open the given source and any other sources
     /// included by the script. 
     pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<CharReaderOpener>) -> Result<(), ParseError> {
-        let mut parser = Parser::new(source_opener);
-        self.init_parser(&mut parser);
-        self.load_functions(try!(parser.parse(source)))
+        let mut loader = BleepLoader::new();
+        try!(loader.load_user(source, source_opener));
+        self.load_functions(loader.get_functions())
     }
     
-    fn load_functions(&mut self, ast_funcs : Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
+    fn load_functions(&mut self, ast_funcs : &Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
         // all function names must be added to the environment before
         // any function is analyzed, so functions can refer to each
         // other regardless of the order in which they're defined
-        for ast_func in &ast_funcs {
+        for ast_func in ast_funcs {
             self.set_var(&*ast_func.name, Value::Null);
             //println!("{:?}", ast_func);
         }
@@ -262,30 +263,6 @@ impl Bleep {
         self.set_var("/",  Value::new_native_func(native::func_num_div));
         self.set_var("^",  Value::new_native_func(native::func_num_pow));
         self.set_var("%",  Value::new_native_func(native::func_num_mod));
-    }
-    
-    fn init_parser(&self, parser : &mut parser::Parser) {
-        parser.add_op("=",   10, ops::Assoc::Right);
-        parser.add_op("||",  20, ops::Assoc::Left);
-        parser.add_op("&&",  30, ops::Assoc::Left);
-        parser.add_op("==",  40, ops::Assoc::Left);
-        parser.add_op("!=",  40, ops::Assoc::Left);
-        parser.add_op("<",   50, ops::Assoc::Left);
-        parser.add_op(">",   50, ops::Assoc::Left);
-        parser.add_op("<=",  50, ops::Assoc::Left);
-        parser.add_op(">=",  50, ops::Assoc::Left);
-        parser.add_op("+",   60, ops::Assoc::Left);
-        parser.add_op("-",   60, ops::Assoc::Left);
-        parser.add_op("*",   70, ops::Assoc::Left);
-        parser.add_op("/",   70, ops::Assoc::Left);
-        parser.add_op("%",   70, ops::Assoc::Left);
-        parser.add_op("-",   80, ops::Assoc::Prefix);
-        parser.add_op("!",   80, ops::Assoc::Prefix);
-        parser.add_op("^",   90, ops::Assoc::Right);
-        parser.add_op(".", 1001, ops::Assoc::Left);
-
-        parser.set_element_index_prec(1000);
-        parser.set_function_call_prec(1000);
     }
     
     /// Dumps the global environment (used for debugging).

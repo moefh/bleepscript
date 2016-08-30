@@ -1,10 +1,11 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use super::Closure;
 use super::Block;
 use super::super::{value, Value, RunError};
 use super::super::src_loc::SrcLoc;
-use super::super::env::Env;
+use super::super::Env;
 
 pub enum Expression {
     Number(f64, SrcLoc),
@@ -292,6 +293,6 @@ impl FuncDef {
     }
     
     pub fn eval(func : Rc<FuncDef>, env : &Rc<Env>) -> Value {
-        Value::Closure(value::Closure::new(func, env.clone()))
+        Value::Closure(Closure::new(func, env.clone()))
     }
 }

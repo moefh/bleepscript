@@ -24,7 +24,7 @@ fn cmp_eq(args : &[Value]) -> Result<bool,RunError> {
         (&Value::Bool(l),           &Value::Bool(r)          ) => l == r,
         (&Value::Number(l),         &Value::Number(r)        ) => l == r,
         (&Value::String(ref l),     &Value::String(ref r)    ) => l == r,
-        (&Value::Closure(ref l),    &Value::Closure(ref r)   ) => l == r,
+        (&Value::ASTClosure(ref l), &Value::ASTClosure(ref r)) => l == r,
         (&Value::NativeFunc(ref l), &Value::NativeFunc(ref r)) => l == r,
         _ => false,
     };
