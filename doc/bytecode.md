@@ -3,39 +3,13 @@
 
 This is general outline of how the bytecode is supposed to work.
 
-## TODO
+## Compiled Program
 
-Change the way functions and calls work to make it possible to
-call any closure in the value stack.
-
-- The definition of `Value` will need to change so `Closure` points
-to the `instructions` array instead of containing a reference to
-the AST.
-
-- Probably move `env.rs` and `value.rs` to `exec/`, and also part
-of `errors.rs`, and create their bytecode counterparts in
-`bytecode/`. [QUESTION: how to handle both error types -- `exec/`'s
-and `bytecode/`'s in `lib.rs`? Using trait objects will probably
-slow down AST execution of `return` and `break` a lot. Or maybe not...?]
-
-
-## Bytecode Program
-
-This is the result of the bytecode compilation (but `global_functions` will
-probably be replaced by the new global environment, see the TODO):
+This is the result of the bytecode compilation:
 
 - `instructions: &[u32]`
 
     - Instructions array of size up to `2^26`.
-
-- `global_functions: HashMap<String, u32>`
-
-    - Map from function names to instruction pointers. Each function points to
-      a location in the instruction array that contains the number of parameters
-      expected by the function followed by the list of instructions in the function.
-      The last instruction of the function should be a `ret`, which should be the
-      last element of the array or be followed by another function (that is, the
-      number of parameters expected by the next function, etc.).
 
 ## Execution state
 
@@ -62,9 +36,13 @@ probably be replaced by the new global environment, see the TODO):
 
 ## Execution
 
-The user asks to call a given global function with a given array of arguments.
+The user asks to call a given named function with a given array of arguments.
 
-1. Get the instruction pointer `IP` from the `global_functions` map.
+1. Get the value of the function name from the environment, and call its method `call()`.
+
+2. `Value::call()` for a bytecode-compiled function (type `Value::BytecodeClosure`
+   [TODO: change name??]) checks the number of arguments passed 
+    the function's `IP` and the number of 
 
 2. Read the number of parameters expected by the function from `instructions[IP]`, and
    check if it matches the number of arguments given.
@@ -201,42 +179,45 @@ if flag_true then IP = T
 ```
 
 
-### newenv_func
-
-`newenv_func T`
-
-- `T` at `[25..0]`
-
-Creates a new environment for a function call. Used in conjunction with `call`.
-
-Execution:
-
-```
-[tmp] = for i in 1..instructions[T] { stack.pop() }
-cur_env = make_new_env(parent = cur_env, local vars = [tmp])
-```
-
 ### call
 
-`call T`
+`call N`
 
-- `T` at `[25..0]`
+- `N` at `[11..0]`
 
-Calls a function
+Calls a function passing `N` parameters.  This instruction must be preceded by `newenv N`.
 
 Execution:
 
 ```
-ret_stack.push(IP)
-IP = T+1
+func = val_stack.pop()
+match func {
+  native function => {
+    tmp = func.call([args], cur_env)
+    val_stack.push(tmp)
+  }
+  AST closure => {
+    check N == func.num_param
+    tmp = func.run_function_body(cur_env)
+    val_stack.push(tmp)
+  }
+  bytecode closure => {
+    check N == func.num_param
+	ret_stack.push(IP)
+	IP = func.IP
+  }
+  _ => ERROR
+}
 ```
+
+Errors if the value being called is not a function or if N is not equal to the number of parameters of the function.
 
 
 ### ret
 
 `ret`
 
-Returns from a function.
+Returns from a function.  This instruction must be preceded by `popenv`.
 
 Execution:
 

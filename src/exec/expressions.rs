@@ -293,6 +293,6 @@ impl FuncDef {
     }
     
     pub fn eval(func : Rc<FuncDef>, env : &Rc<Env>) -> Value {
-        Value::Closure(Closure::new(func, env.clone()))
+        Value::ASTClosure(Closure::new(func, env.clone()))
     }
 }
