@@ -265,7 +265,17 @@ impl Bleep {
             println!("function {} with {} parameters at address {}", func.name, n_params, addr);
         }
         gen.disasm(&labels);
-        return Ok(())
+        
+        let mut bc = bytecode::Bytecode::new(self.env.clone());
+        bc.reset(gen);
+        let loc = SrcLoc::new("(no file)", 0, 0);
+        match self.get_var("test") {
+            Some(Value::BCClosure(ref c)) => {
+                bc.call_func(c, &[Value::Null], &loc).expect("err");
+                panic!("done!");
+            }
+            _ => panic!("unexpected value for 'test'"),
+        }
     }
 
     fn init_env(&mut self) {

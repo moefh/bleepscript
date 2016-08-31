@@ -11,7 +11,7 @@ use super::{Value, RunError};
 /// 
 /// Users usually don't need to use this directly. 
 pub struct Env {
-    parent : Option<Rc<Env>>,
+    pub parent : Option<Rc<Env>>,
     vals : RefCell<Vec<Value>>,
 }
 

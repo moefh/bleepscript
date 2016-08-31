@@ -83,3 +83,9 @@ function main(arg) {
     
     return 42;
 }
+
+function test(arg) {
+    var x = "banana";
+    x = 2;
+    printf("x=%s\n", x);
+}

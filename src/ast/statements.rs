@@ -46,7 +46,7 @@ impl Statement {
         match *self {
             Statement::Empty => {
                 gen.add_comment("empty statement");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
             Statement::VarDecl(ref d) => {
@@ -57,24 +57,24 @@ impl Statement {
             
             Statement::Block(ref b) => try!(b.compile(sym, gen)),
 
-            Statement::If(ref i) => {
+            Statement::If(_) => {
                 gen.add_comment("TODO: if");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
-            Statement::While(ref w) => {
+            Statement::While(_) => {
                 gen.add_comment("TODO: while");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
-            Statement::Return(ref r) => {
+            Statement::Return(_) => {
                 gen.add_comment("TODO: return");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
-            Statement::Break(ref l) => {
+            Statement::Break(_) => {
                 gen.add_comment("TODO: break");
-                gen.emit_nop();
+                gen.emit_halt();
             }
         }
         Ok(())

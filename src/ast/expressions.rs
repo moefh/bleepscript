@@ -129,13 +129,13 @@ impl Expression {
         println!("Expression::compile(): {:?}", self);
 
         match *self {
-            Expression::Number(ref n, ref loc) => {
+            Expression::Number(ref n, _) => {
                 gen.add_comment(&format!("{}", *n));
                 let index = gen.add_literal(Value::Number(*n));
                 gen.emit_pushlit(index);
             }
 
-            Expression::String(ref s, ref loc) => {
+            Expression::String(ref s, _) => {
                 gen.add_comment(&format!("{:?}", s));
                 let index = gen.add_literal(Value::String(s.clone()));
                 gen.emit_pushlit(index);
@@ -151,44 +151,93 @@ impl Expression {
                 };
             }
 
-            Expression::Vec(ref v) => {
+            Expression::Vec(_) => {
                 gen.add_comment("TODO: vec literal");
-                gen.emit_nop();
+                gen.emit_halt();
             }
 
-            Expression::Map(ref m) => {
+            Expression::Map(_) => {
                 gen.add_comment("TODO: map literal");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
-            Expression::Element(ref e) => {
+            Expression::Element(_) => {
                 gen.add_comment("TODO: element access");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
             Expression::BinaryOp(ref op) => {
-                gen.add_comment("TODO: binary op");
-                gen.emit_nop();
+                match &**op.op {
+                    "=" => try!(self.compile_assignment(&*op.left, &*op.right, sym, gen)),
+                    "." => try!(self.compile_dot(&*op.left, &*op.right, sym, gen)),
+                    _ => {
+                        gen.add_comment("TODO: binary op");
+                        gen.emit_halt();
+                    }
+                }
             }
 
-            Expression::PrefixOp(ref op) => {
+            Expression::PrefixOp(_) => {
                 gen.add_comment("TODO: prefix op");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
-            Expression::FuncDef(ref f) => {
+            Expression::FuncDef(_) => {
                 gen.add_comment("TODO: func def");
-                gen.emit_nop();
+                gen.emit_halt();
             }
             
-            Expression::FuncCall(ref f) => {
-                gen.add_comment("TODO: func call");
-                gen.emit_nop();
-            }
+            Expression::FuncCall(ref f) => try!(f.compile(sym, gen)),
         }
         
         Ok(())
     }
+    
+    pub fn compile_assignment(&self,
+                              lhs : &Expression,
+                              val : &Expression,
+                              sym : &Rc<SymTab>,
+                              gen : &mut bytecode::Gen) -> ParseResult<()> {
+        match *lhs {
+            Expression::Ident(ref id, ref loc) => {
+                match sym.get_name(&*id) {
+                    Some((vi, ei)) => {
+                        try!(val.compile(sym, gen));
+                        gen.add_comment(&format!("{} = ...", &*id));
+                        gen.emit_setvar(vi as u16, ei as u16);
+                        return Ok(());
+                    }
+                    None => return Err(ParseError::new(loc.clone(), &format!("assignment to undeclared variable '{}'", id)))
+                }
+            }
+            
+            Expression::Element(_) => {
+                gen.add_comment("TODO: assignment to element x[y]");
+                gen.emit_halt();
+                return Ok(());
+            }
+
+            Expression::BinaryOp(ref op) => {
+                if *op.op == "." {
+                    if let Expression::Ident(ref index, _) = *op.right {
+                        gen.add_comment(&format!("TODO: assignment to element x.{}", index));
+                        gen.emit_halt();
+                        return Ok(());
+                    }
+                }
+            }
+            
+            _ => (),
+        }
+        Err(ParseError::new(self.loc().clone(), "assignment to invalid target"))
+    }
+
+    pub fn compile_dot(&self, _lhs : &Expression, _rhs : &Expression, _sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+        gen.add_comment("TODO: '.'");
+        gen.emit_halt();
+        Ok(())
+    }
+
 }
 
 // =========================================================
@@ -298,6 +347,17 @@ impl FuncCall {
         }
 
         Ok(exec::FuncCall::new(func.loc(), Box::new(func), args))
+    }
+    
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+        try!(self.func.compile(sym, gen));
+        for arg in &self.args {
+            try!(arg.compile(sym, gen));
+        }
+        //gen.add_comment("for function call");
+        //gen.emit_newenv(self.args.len() as u16);
+        gen.emit_call(self.args.len() as u16);
+        Ok(())
     }
 }
 
