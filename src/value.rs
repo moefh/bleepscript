@@ -1,10 +1,11 @@
 use std::slice;
 use std::cell::{Ref, RefCell};
 use std::fmt;
-use std::cmp;
 use std::rc::Rc;
 
 use super::exec;
+use super::bytecode;
+use super::native::NativeFunc;
 use super::env::Env;
 use super::src_loc::SrcLoc;
 use super::RunError;
@@ -30,8 +31,11 @@ pub enum Value {
     /// Map
     Map(Rc<MapValue>),
     
-    /// AST Closure (the result of evaluating a function definition)
+    /// AST Closure
     ASTClosure(exec::Closure),
+    
+    /// Bytecode Closure
+    BCClosure(bytecode::Closure),
     
     /// Rust function 
     NativeFunc(NativeFunc),
@@ -95,22 +99,6 @@ impl Value {
         }
     }
     
-    pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
-        match *self {
-            Value::ASTClosure(ref c) => match c.apply(args) {
-                Err(RunError::Return(v)) => Ok(v),
-                x => x,
-            },
-            
-            Value::NativeFunc(f) => match f.call(args, env) {
-                Err(e) => Err(e.native_to_script(loc)),
-                Ok(x) => Ok(x),
-            },
-            
-            ref f => Err(RunError::new_script(loc.clone(), &format!("trying to call non-function object '{}'", f)))
-        }
-    }
-
     pub fn is_true(&self) -> bool {
         match *self {
             Value::Null           => false,
@@ -120,6 +108,7 @@ impl Value {
             Value::Vec(_)         => true,
             Value::Map(_)         => true,
             Value::ASTClosure(_)  => true,
+            Value::BCClosure(_)   => true,
             Value::NativeFunc(_)  => true,
         }
     }
@@ -133,6 +122,7 @@ impl Value {
             Value::Vec(_)         => Err(RunError::new_native_str("can't convert vector to i64")),
             Value::Map(_)         => Err(RunError::new_native_str("can't convert map to i64")),
             Value::ASTClosure(_)  => Err(RunError::new_native_str("can't convert closure to i64")),
+            Value::BCClosure(_)   => Err(RunError::new_native_str("can't convert closure to i64")),
             Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to i64")),
         }
     }
@@ -146,6 +136,7 @@ impl Value {
             Value::Vec(_)         => Err(RunError::new_native_str("can't convert vector to f64")),
             Value::Map(_)         => Err(RunError::new_native_str("can't convert map to f64")),
             Value::ASTClosure(_)  => Err(RunError::new_native_str("can't convert closure to f64")),
+            Value::BCClosure(_)   => Err(RunError::new_native_str("can't convert closure to f64")),
             Value::NativeFunc(_)  => Err(RunError::new_native_str("can't convert native function to f64")),
         }
     }
@@ -165,6 +156,7 @@ impl fmt::Display for Value {
             Value::Vec(ref v)        => write!(f, "{:?}", v.borrow()),
             Value::Map(ref m)        => write!(f, "{}", m),
             Value::ASTClosure(ref c) => write!(f, "{}", c),
+            Value::BCClosure(ref c)  => write!(f, "{}", c),
             Value::NativeFunc(ref n) => write!(f, "{}", n),
         }
     }
@@ -176,42 +168,6 @@ impl fmt::Debug for Value {
     }
 }
 
-#[derive(Copy)]
-pub struct NativeFunc {
-    pub f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>,
-}
-
-impl NativeFunc {
-    pub fn new(f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>) -> NativeFunc {
-        NativeFunc {
-            f : f,
-        }
-    }
-    
-    pub fn call(&self, args : &[Value], env : &Rc<Env>) -> Result<Value,RunError> {
-        (self.f)(args, env)
-    }
-}
-
-impl Clone for NativeFunc {
-    fn clone(&self) -> NativeFunc {
-        NativeFunc {
-            f : self.f,
-        }
-    }
-}
-
-impl fmt::Display for NativeFunc {
-    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "<native_func@{:x}>", self as *const NativeFunc as usize)
-    }
-}
-
-impl cmp::PartialEq for NativeFunc {
-    fn eq(&self, other: &NativeFunc) -> bool {
-        self as *const NativeFunc == other as *const NativeFunc
-    }
-}
 
 #[derive(PartialEq)]
 pub struct MapValue {

@@ -30,7 +30,8 @@ mod sym_tab;
 mod value;
 mod native;
 mod loader;
-pub mod exec;
+mod exec;
+mod bytecode;
 
 use std::rc::Rc;
 use std::path;
@@ -206,11 +207,10 @@ impl Bleep {
     /// a value), or any error encountered during execution.
     pub fn call_function(&self, func_name : &str, args : &[Value]) -> Result<Value, RunError> {
         let loc = SrcLoc::new("(no file)", 0, 0);
-        let func = match self.get_var(func_name) {
-            Some(f) => f,
-            None => return Err(RunError::new_script(loc, &format!("function not found: '{}'", func_name))),
-        };
-        func.call(args, &self.env, &loc)
+        match self.get_var(func_name) {
+            Some(f) => exec::run_function(&f, args, &self.env, &loc),
+            None => Err(RunError::new_script(loc, &format!("function not found: '{}'", func_name))),
+        }
     }
 
     /// Sets the value of the given global variable to the given value.

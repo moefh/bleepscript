@@ -7,17 +7,17 @@ This is general outline of how the bytecode is supposed to work.
 
 This is the result of the bytecode compilation:
 
-- `instructions: &[u32]`
+- `instructions: Vec<u32>`
 
     - Instructions array of size up to `2^26`.
 
 ## Execution state
 
-- `IP : usize`
+- `ip : usize`
 
     - Offset of the current instruction in `instructions`.
 
-- `cur_env : Rc<Env>`
+- `env : Rc<Env>`
 
     - Current environment.
 
@@ -38,22 +38,18 @@ This is the result of the bytecode compilation:
 
 The user asks to call a given named function with a given array of arguments.
 
-1. Get the value of the function name from the environment, and call its method `call()`.
+1. Get the value of the function name from the environment. If it's not a Value::BCClosure,
+   call `Value::call()` on it, and we're done (no bytecode to execute).
 
-2. `Value::call()` for a bytecode-compiled function (type `Value::BytecodeClosure`
-   [TODO: change name??]) checks the number of arguments passed 
-    the function's `IP` and the number of 
+2. Check that the number of arguments passed matches the closure's `.num_params`. 
 
-2. Read the number of parameters expected by the function from `instructions[IP]`, and
-   check if it matches the number of arguments given.
-
-3. Create a new environment with the given arguments, and the parent set to the global
-   environment. Set `cur_env` to this new environment.
+3. Create a new environment with the given arguments, and with the parent set to the global
+   environment. Set `env` to this new environment.
 
 4. Empty the stacks and zero all the flags.
 
-5. Increment `IP` (to skip the number of parameters of the function) and start executing
-   instructions.
+5. Set `IP` to the closure's `.addr` and start executing the instructions.
+
 
 ## Opcodes
 
@@ -78,7 +74,7 @@ Execution:
 
 ```
 [tmp] = for i in 1..N { val_stack.pop() }
-cur_env = make_new_env(parent = cur_env, [tmp])
+env = make_new_env(parent = env, [tmp])
 ```
     
 
@@ -91,10 +87,10 @@ Discards the current environment, returning to its parent.
 Execution:
 
 ```
-cur_env = cur_env.parent
+env = env.parent
 ```
 
-Errors if `cur_env` is the global environment.
+Errors if `env` is the global environment.
 
 
 ### getvar
@@ -109,7 +105,7 @@ Reads a variable from the environment.
 Execution:
 
 ```
-tmp = cur_env(VI, EI)
+tmp = env(VI, EI)
 val_stack.push(tmp)
 ```
 
@@ -129,7 +125,7 @@ Execution:
 
 ```
 tmp = val_stack.pop()
-cur_env(VI, EI) = tmp
+env(VI, EI) = tmp
 ```
 
 Errors if `(VI, EI)` is not in the environment.
@@ -193,12 +189,12 @@ Execution:
 func = val_stack.pop()
 match func {
   native function => {
-    tmp = func.call([args], cur_env)
+    tmp = func.call([args], env)
     val_stack.push(tmp)
   }
   AST closure => {
     check N == func.num_param
-    tmp = func.run_function_body(cur_env)
+    tmp = func.run_function_body(env)
     val_stack.push(tmp)
   }
   bytecode closure => {

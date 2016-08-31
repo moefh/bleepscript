@@ -158,7 +158,7 @@ impl FuncCall {
         for a in &self.args {
             args.push(try!(a.eval(env)));
         }
-        func.call(&args, env, &self.loc)
+        super::run_function(&func, &args, env, &self.loc)
     }
 }
 
@@ -244,7 +244,7 @@ impl BinaryOp {
         let func = try!(env.get_value(self.val_index, self.env_index));
         let left = try!(self.left.eval(env));
         let right = try!(self.right.eval(env));
-        func.call(&[left, right], env, &self.loc)
+        super::run_function(&func, &[left, right], env, &self.loc)
     }
 }
 
@@ -271,7 +271,7 @@ impl PrefixOp {
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
         let func = try!(env.get_value(self.val_index, self.env_index));
         let arg = try!(self.arg.eval(env));
-        func.call(&[arg], env, &self.loc)
+        super::run_function(&func, &[arg], env, &self.loc)
     }
 }
 

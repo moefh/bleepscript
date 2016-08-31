@@ -1,9 +1,52 @@
 
+use std::fmt;
+use std::cmp;
 use std::rc::Rc;
 
 use super::{Value,RunError};
 use super::env::Env;
 use super::src_loc::SrcLoc;
+
+#[derive(Copy)]
+pub struct NativeFunc {
+    pub f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>,
+}
+
+impl NativeFunc {
+    pub fn new(f : fn(&[Value], &Rc<Env>) -> Result<Value,RunError>) -> NativeFunc {
+        NativeFunc {
+            f : f,
+        }
+    }
+    
+    pub fn call(&self, args : &[Value], env : &Rc<Env>, loc : &SrcLoc) -> Result<Value, RunError> {
+        match (self.f)(args, env) {
+            Err(e) => Err(e.native_to_script(loc)),
+            Ok(x) => Ok(x),
+        }
+    }
+
+}
+
+impl Clone for NativeFunc {
+    fn clone(&self) -> NativeFunc {
+        NativeFunc {
+            f : self.f,
+        }
+    }
+}
+
+impl fmt::Display for NativeFunc {
+    fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "<native_func@{:x}>", self as *const NativeFunc as usize)
+    }
+}
+
+impl cmp::PartialEq for NativeFunc {
+    fn eq(&self, other: &NativeFunc) -> bool {
+        self as *const NativeFunc == other as *const NativeFunc
+    }
+}
 
 // ==============================================================
 // Helper functions
