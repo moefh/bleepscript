@@ -12,3 +12,8 @@ path = "src/lib.rs"
 name = "bleep"
 path = "src/bin/main.rs"
 doc = false
+
+[[example]]
+name = "example"
+path = "src/bin/example.rs"
+doc = false
