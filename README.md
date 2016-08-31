@@ -1,6 +1,6 @@
 ## BleepScript
 
-A simple toy scriting language written in Rust, inspired by SICP's
+A toy script language written in Rust, inspired by SICP's
 [metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
 
 ## Loading and Executing a Script
