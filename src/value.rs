@@ -164,7 +164,17 @@ impl fmt::Display for Value {
 
 impl fmt::Debug for Value {
     fn fmt(&self, f : &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}", self)
+        match *self {
+            Value::Null              => write!(f, "null"),
+            Value::Bool(b)           => write!(f, "{:?}", b),
+            Value::Number(n)         => write!(f, "{:.17}", n),
+            Value::String(ref s)     => write!(f, "{:?}", s),
+            Value::Vec(ref v)        => write!(f, "{:?}", v.borrow()),
+            Value::Map(ref m)        => write!(f, "{}", m),
+            Value::ASTClosure(ref c) => write!(f, "{}", c),
+            Value::BCClosure(ref c)  => write!(f, "{}", c),
+            Value::NativeFunc(ref n) => write!(f, "{}", n),
+        }
     }
 }
 

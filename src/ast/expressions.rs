@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
-use super::super::src_loc::SrcLoc;
 use super::super::exec;
+use super::super::bytecode;
+use super::super::src_loc::SrcLoc;
 use super::super::sym_tab::SymTab;
 use super::super::Value;
 use super::super::parser::{ParseResult, ParseError};
@@ -122,6 +123,71 @@ impl Expression {
             
             _ => return Err(ParseError::new(index.loc().clone(), "attribute must be an identifier")),
         }
+    }
+
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+        println!("Expression::compile(): {:?}", self);
+
+        match *self {
+            Expression::Number(ref n, ref loc) => {
+                gen.add_comment(&format!("{}", *n));
+                let index = gen.add_literal(Value::Number(*n));
+                gen.emit_pushlit(index);
+            }
+
+            Expression::String(ref s, ref loc) => {
+                gen.add_comment(&format!("{:?}", s));
+                let index = gen.add_literal(Value::String(s.clone()));
+                gen.emit_pushlit(index);
+            }
+
+            Expression::Ident(ref id, ref loc) => {
+                match sym.get_name(&*id) {
+                    Some((vi, ei)) => {
+                        gen.add_comment(&*id);
+                        gen.emit_getvar(vi as u16, ei as u16)
+                    },
+                    None => return Err(ParseError::new(loc.clone(), &format!("name not declared: '{}'", id)))
+                };
+            }
+
+            Expression::Vec(ref v) => {
+                gen.add_comment("TODO: vec literal");
+                gen.emit_nop();
+            }
+
+            Expression::Map(ref m) => {
+                gen.add_comment("TODO: map literal");
+                gen.emit_nop();
+            }
+            
+            Expression::Element(ref e) => {
+                gen.add_comment("TODO: element access");
+                gen.emit_nop();
+            }
+            
+            Expression::BinaryOp(ref op) => {
+                gen.add_comment("TODO: binary op");
+                gen.emit_nop();
+            }
+
+            Expression::PrefixOp(ref op) => {
+                gen.add_comment("TODO: prefix op");
+                gen.emit_nop();
+            }
+            
+            Expression::FuncDef(ref f) => {
+                gen.add_comment("TODO: func def");
+                gen.emit_nop();
+            }
+            
+            Expression::FuncCall(ref f) => {
+                gen.add_comment("TODO: func call");
+                gen.emit_nop();
+            }
+        }
+        
+        Ok(())
     }
 }
 

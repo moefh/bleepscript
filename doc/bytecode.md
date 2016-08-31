@@ -80,17 +80,21 @@ env = make_new_env(parent = env, [tmp])
 
 ### popenv
 
-`popenv`
+`popenv N`
 
-Discards the current environment, returning to its parent.
+- `N` at `[11..0]`
+
+Returns to the current environment's Nth parent
 
 Execution:
 
 ```
-env = env.parent
+for _ in 0..N {
+  env = env.parent
+}
 ```
 
-Errors if `env` is the global environment.
+Errors if the global environment is reached before the end.
 
 
 ### getvar
@@ -129,6 +133,43 @@ env(VI, EI) = tmp
 ```
 
 Errors if `(VI, EI)` is not in the environment.
+
+
+### setelem
+
+`setelem`
+
+Sets an element of a map or array.
+
+Execution:
+
+```
+val = val_stack.pop()
+key = val_stack.pop()
+c = val_stack.pop()
+c[key] = val
+val_stack.push(val)
+```
+
+Errors if `(VI, EI)` is not in the environment.
+
+
+### pushval
+
+`pushval N`
+
+- `N` at `[25..0]`
+
+Pushes a literal value to the value stack.
+
+Execution:
+
+```
+val = get_literal(N)
+val_stack.push(val)
+```
+
+Errors if `N` is not a literal value.
 
 
 ### test
@@ -181,7 +222,7 @@ if flag_true then IP = T
 
 - `N` at `[11..0]`
 
-Calls a function passing `N` parameters.  This instruction must be preceded by `newenv N`.
+Calls a function passing `N` parameters.  This instruction should normally be preceded by `newenv N`.
 
 Execution:
 
@@ -213,7 +254,7 @@ Errors if the value being called is not a function or if N is not equal to the n
 
 `ret`
 
-Returns from a function.  This instruction must be preceded by `popenv`.
+Returns from a function.  This instruction should notmally be preceded by `popenv`.
 
 Execution:
 

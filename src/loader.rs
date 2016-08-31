@@ -99,8 +99,8 @@ impl BleepLoader {
         parser.set_function_call_prec(1000);
     }
     
-    pub fn get_functions(&self) -> &Vec<ast::NamedFuncDef> {
-        &self.funcs
+    pub fn get_functions(self) -> Vec<ast::NamedFuncDef> {
+        self.funcs
     }
 
 }

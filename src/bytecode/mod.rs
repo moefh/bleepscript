@@ -1,10 +1,13 @@
 
 mod closure;
+mod gen;
 
-use std::rc::Rc;
+//use std::rc::Rc;
 
 pub use self::closure::Closure;
+pub use self::gen::Gen;
 
+/*
 use super::Env;
 use super::Value;
 use super::RunError;
@@ -54,3 +57,4 @@ impl Bytecode {
         unimplemented!();
     }
 }
+*/

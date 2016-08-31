@@ -2,10 +2,12 @@
 use std;
 use std::rc::Rc;
 
-use super::super::src_loc::SrcLoc;
 use super::super::exec;
+use super::super::bytecode;
+use super::super::src_loc::SrcLoc;
 use super::super::sym_tab::SymTab;
 use super::super::parser::{ParseResult, ParseError};
+use super::super::Value;
 use super::analysis;
 use super::Expression;
 
@@ -38,6 +40,44 @@ impl Statement {
                 }
             }
         }
+    }
+
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+        match *self {
+            Statement::Empty => {
+                gen.add_comment("empty statement");
+                gen.emit_nop();
+            }
+            
+            Statement::VarDecl(ref d) => {
+                return Err(ParseError::new(d.loc.clone(), "internal error: trying to parse variable declaration"));
+            }
+            
+            Statement::Expression(ref e) => try!(e.compile(sym, gen)),
+            
+            Statement::Block(ref b) => try!(b.compile(sym, gen)),
+
+            Statement::If(ref i) => {
+                gen.add_comment("TODO: if");
+                gen.emit_nop();
+            }
+            
+            Statement::While(ref w) => {
+                gen.add_comment("TODO: while");
+                gen.emit_nop();
+            }
+            
+            Statement::Return(ref r) => {
+                gen.add_comment("TODO: return");
+                gen.emit_nop();
+            }
+            
+            Statement::Break(ref l) => {
+                gen.add_comment("TODO: break");
+                gen.emit_nop();
+            }
+        }
+        Ok(())
     }
 }
 
@@ -90,6 +130,37 @@ impl Block {
         let iter = (&self.stmts).iter();
         let stmts = try!(self.analyze_stmts(sym, iter, st));
         Ok(exec::Block::new(self.loc.clone(), false, None, stmts))
+    }
+    
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+        let mut num_envs = 0;
+        let mut cur_sym = sym.clone();
+        
+        for stmt in &self.stmts {
+            match *stmt {
+                Statement::VarDecl(ref decl) => {
+                    match decl.val {
+                        Some(ref e) => try!(e.compile(&cur_sym, gen)),
+                        None => {
+                            let index = gen.add_literal(Value::Null);
+                            gen.add_comment("null");
+                            gen.emit_pushlit(index);
+                        }
+                    }
+                    cur_sym = Rc::new(SymTab::new(cur_sym.clone(), &[decl.var.clone()]));
+                    num_envs += 1;
+                    gen.add_comment(&format!("var {} = ...", &*decl.var));
+                    gen.emit_newenv(1);
+                }
+                
+                _ => try!(stmt.compile(&cur_sym, gen)),
+            }
+        }
+        
+        if num_envs > 0 {
+            gen.emit_popenv(num_envs);
+        }
+        Ok(())
     }
 }
 
@@ -224,6 +295,17 @@ impl FuncDef {
         
         Ok(exec::FuncDef::new(self.loc.clone(), self.params.len(), Box::new(block))) 
     }
+    
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<(u32,usize)> {
+        let addr = gen.addr();
+        let new_sym = Rc::new(SymTab::new(sym.clone(), &self.params));
+
+        try!(self.block.compile(&new_sym, gen));
+
+        gen.emit_popenv(1);
+        gen.emit_ret();
+        Ok((addr, self.params.len()))
+    }
 }
 
 // =========================================================
@@ -246,4 +328,8 @@ impl NamedFuncDef {
         self.def.analyze(sym, st)
     }
     
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<(u32,usize)> {
+        println!("NamedFuncDef::compile(): function '{}'", self.name);
+        self.def.compile(sym, gen)
+    }
 }

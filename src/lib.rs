@@ -35,6 +35,7 @@ mod bytecode;
 
 use std::rc::Rc;
 use std::path;
+use std::collections::HashMap;
 
 pub use self::env::Env;
 pub use self::errors::RunError;
@@ -99,7 +100,7 @@ use self::sym_tab::SymTab;
 pub struct Bleep {
     env : Rc<Env>,
     sym_tab : Rc<SymTab>,
-    funcs : Vec<Rc<exec::FuncDef>>,
+    funcs : HashMap<String, ast::NamedFuncDef>,
 }
 
 impl Bleep {
@@ -117,7 +118,7 @@ impl Bleep {
         let mut bleep = Bleep {
             env : Rc::new(Env::new_global()),
             sym_tab : Rc::new(SymTab::new_global()),
-            funcs : Vec::new(),
+            funcs : HashMap::new(),
         };
         
         bleep.init_env();
@@ -180,11 +181,11 @@ impl Bleep {
         self.load_functions(loader.get_functions())
     }
     
-    fn load_functions(&mut self, ast_funcs : &Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
+    fn load_functions(&mut self, ast_funcs : Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
         // all function names must be added to the environment before
         // any function is analyzed, so functions can refer to each
         // other regardless of the order in which they're defined
-        for ast_func in ast_funcs {
+        for ast_func in &ast_funcs {
             self.set_var(&*ast_func.name, Value::Null);
             //println!("{:?}", ast_func);
         }
@@ -194,7 +195,7 @@ impl Bleep {
             let closure = exec::FuncDef::eval(func.clone(), &self.env);
             self.set_var(&*ast_func.name, closure);
             //println!("{:?}", func);
-            self.funcs.push(func);
+            self.funcs.insert((*ast_func.name).clone(), ast_func);
         }
         Ok(())
     }
@@ -208,6 +209,7 @@ impl Bleep {
     pub fn call_function(&self, func_name : &str, args : &[Value]) -> Result<Value, RunError> {
         let loc = SrcLoc::new("(no file)", 0, 0);
         match self.get_var(func_name) {
+            Some(Value::BCClosure(_)) => Err(RunError::new_script(loc, "running bytecode is not implemented!")),
             Some(f) => exec::run_function(&f, args, &self.env, &loc),
             None => Err(RunError::new_script(loc, &format!("function not found: '{}'", func_name))),
         }
@@ -239,6 +241,31 @@ impl Bleep {
             
             None => None,
         }
+    }
+
+    pub fn compile_file<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
+        let mut loader = BleepLoader::new();
+        try!(loader.load_file(filename));
+        self.compile_functions(loader.get_functions())
+    }
+    
+    fn compile_functions(&mut self, ast_funcs : Vec<ast::NamedFuncDef>) -> Result<(), ParseError> {
+        for ast_func in &ast_funcs {
+            self.set_var(&*ast_func.name, Value::Null);
+            //println!("{:?}", ast_func);
+        }
+
+        let mut gen = bytecode::Gen::new();
+        let mut labels = std::collections::HashMap::new();
+        for func in ast_funcs {
+            let (addr, n_params) = try!(func.compile(&self.sym_tab, &mut gen));
+            labels.insert(addr, (*func.name).clone());
+            let env = self.env.clone();
+            self.set_var(&*func.name, Value::BCClosure(bytecode::Closure::new(addr, n_params, env)));
+            println!("function {} with {} parameters at address {}", func.name, n_params, addr);
+        }
+        gen.disasm(&labels);
+        return Ok(())
     }
 
     fn init_env(&mut self) {
