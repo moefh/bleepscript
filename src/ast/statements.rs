@@ -42,7 +42,7 @@ impl Statement {
         }
     }
 
-    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
         match *self {
             Statement::Empty => {
                 gen.add_comment("empty statement");
@@ -53,7 +53,11 @@ impl Statement {
                 return Err(ParseError::new(d.loc.clone(), "internal error: trying to parse variable declaration"));
             }
             
-            Statement::Expression(ref e) => try!(e.compile(sym, gen)),
+            Statement::Expression(ref e) => {
+                try!(e.compile(sym, gen));
+                gen.add_comment("statement end");
+                gen.emit_popval(1);
+            }
             
             Statement::Block(ref b) => try!(b.compile(sym, gen)),
 
@@ -132,7 +136,7 @@ impl Block {
         Ok(exec::Block::new(self.loc.clone(), false, None, stmts))
     }
     
-    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
         let mut num_envs = 0;
         let mut cur_sym = sym.clone();
         
@@ -296,13 +300,14 @@ impl FuncDef {
         Ok(exec::FuncDef::new(self.loc.clone(), self.params.len(), Box::new(block))) 
     }
     
-    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<(u32,usize)> {
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<(u32,usize)> {
         let addr = gen.addr();
         let new_sym = Rc::new(SymTab::new(sym.clone(), &self.params));
 
         try!(self.block.compile(&new_sym, gen));
 
-        gen.emit_popenv(1);
+        gen.add_comment("auto return null");
+        gen.emit_pushlit(0);
         gen.emit_ret();
         Ok((addr, self.params.len()))
     }
@@ -328,8 +333,8 @@ impl NamedFuncDef {
         self.def.analyze(sym, st)
     }
     
-    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<(u32,usize)> {
-        println!("NamedFuncDef::compile(): function '{}'", self.name);
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<(u32,usize)> {
+        //println!("NamedFuncDef::compile(): function '{}'", self.name);
         self.def.compile(sym, gen)
     }
 }

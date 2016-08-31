@@ -7,23 +7,29 @@ use super::instr;
 
 pub type Addr = u32;
 
-pub struct Gen {
+pub struct Program {
     pub instr : Vec<u32>,
     pub literals : Vec<Value>,
+    labels : HashMap<Addr, String>,
     comments : HashMap<Addr, String>,
 }
 
-impl Gen {
-    pub fn new() -> Gen {
-        Gen {
+impl Program {
+    pub fn new() -> Program {
+        Program {
             instr : vec![],
-            literals : vec![],
+            literals : vec![Value::Null],
+            labels : HashMap::new(),
             comments : HashMap::new(),
         }
     }
     
     pub fn addr(&self) -> Addr {
         self.instr.len() as Addr
+    }
+
+    pub fn add_label(&mut self, addr : Addr, comment : &str) {
+        self.labels.insert(addr, comment.to_string()); 
     }
 
     pub fn add_comment(&mut self, comment : &str) {
@@ -97,11 +103,16 @@ impl Gen {
         (self.instr.len() - 1) as Addr
     }
 
-    pub fn disasm(&self, labels : &HashMap<Addr, String>) {
+    pub fn emit_popval(&mut self, n_vals : u16) -> Addr {
+        self.instr.push(instr::i_op_12(OP_POPVAL, n_vals));
+        (self.instr.len() - 1) as Addr
+    }
+
+    pub fn disasm(&self) {
         println!("================================================");
         println!("==== INSTRUCTIONS");
         for (addr, &instr) in self.instr.iter().enumerate() {
-            if let Some(label) = labels.get(&(addr as u32)) {
+            if let Some(label) = self.labels.get(&(addr as u32)) {
                 println!("");
                 println!(".{}:", label);
             }
@@ -124,6 +135,8 @@ impl Gen {
 
                 OP_CALL    => print!("call       {}", instr::d_op_12(instr)),
                 OP_RET     => print!("ret        "),
+
+                OP_POPVAL  => print!("popval     {}", instr::d_op_12(instr)),
                 
                 _          => print!("???        "),
             }

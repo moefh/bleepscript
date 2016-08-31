@@ -100,6 +100,7 @@ use self::sym_tab::SymTab;
 pub struct Bleep {
     env : Rc<Env>,
     sym_tab : Rc<SymTab>,
+    bytecode : bytecode::Program,
     funcs : HashMap<String, ast::NamedFuncDef>,
 }
 
@@ -118,6 +119,7 @@ impl Bleep {
         let mut bleep = Bleep {
             env : Rc::new(Env::new_global()),
             sym_tab : Rc::new(SymTab::new_global()),
+            bytecode : bytecode::Program::new(),
             funcs : HashMap::new(),
         };
         
@@ -206,10 +208,10 @@ impl Bleep {
     /// 
     /// Returns the value returned by the function (`Value::Null` if the function didn't return
     /// a value), or any error encountered during execution.
-    pub fn call_function(&self, func_name : &str, args : &[Value]) -> Result<Value, RunError> {
+    pub fn call_function(&mut self, func_name : &str, args : &[Value]) -> Result<Value, RunError> {
         let loc = SrcLoc::new("(no file)", 0, 0);
         match self.get_var(func_name) {
-            Some(Value::BCClosure(_)) => Err(RunError::new_script(loc, "running bytecode is not implemented!")),
+            Some(Value::BCClosure(ref c)) => bytecode::run_closure(c, args, &loc, &mut self.bytecode),
             Some(f) => exec::run_function(&f, args, &self.env, &loc),
             None => Err(RunError::new_script(loc, &format!("function not found: '{}'", func_name))),
         }
@@ -255,29 +257,18 @@ impl Bleep {
             //println!("{:?}", ast_func);
         }
 
-        let mut gen = bytecode::Gen::new();
-        let mut labels = std::collections::HashMap::new();
         for func in ast_funcs {
-            let (addr, n_params) = try!(func.compile(&self.sym_tab, &mut gen));
-            labels.insert(addr, (*func.name).clone());
+            let (addr, n_params) = try!(func.compile(&self.sym_tab, &mut self.bytecode));
+            self.bytecode.add_label(addr, &*func.name);
             let env = self.env.clone();
             self.set_var(&*func.name, Value::BCClosure(bytecode::Closure::new(addr, n_params, env)));
-            println!("function {} with {} parameters at address {}", func.name, n_params, addr);
         }
-        gen.disasm(&labels);
         
-        let mut bc = bytecode::Bytecode::new(self.env.clone());
-        bc.reset(gen);
-        let loc = SrcLoc::new("(no file)", 0, 0);
-        match self.get_var("test") {
-            Some(Value::BCClosure(ref c)) => {
-                bc.call_func(c, &[Value::Null], &loc).expect("err");
-                panic!("done!");
-            }
-            _ => panic!("unexpected value for 'test'"),
-        }
+        self.bytecode.disasm();
+        
+        Ok(())
     }
-
+    
     fn init_env(&mut self) {
         self.set_var("null", Value::Null);
         self.set_var("true", Value::Bool(true));

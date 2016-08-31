@@ -11,3 +11,4 @@ pub const OP_JMP     : u8 = 8;
 pub const OP_JT      : u8 = 9;
 pub const OP_CALL    : u8 = 10;
 pub const OP_RET     : u8 = 11;
+pub const OP_POPVAL  : u8 = 12;

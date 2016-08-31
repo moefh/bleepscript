@@ -3,6 +3,10 @@
 
 This is general outline of how the bytecode is supposed to work.
 
+## TODO
+
+(...)
+
 ## Compiled Program
 
 This is the result of the bytecode compilation:
@@ -74,6 +78,7 @@ Execution:
 
 ```
 [tmp] = for i in 1..N { val_stack.pop() }
+env_stack.push(env);
 env = make_new_env(parent = env, [tmp])
 ```
     
@@ -84,13 +89,13 @@ env = make_new_env(parent = env, [tmp])
 
 - `N` at `[11..0]`
 
-Returns to the current environment's Nth parent
+Pops N environments from the env stack.
 
 Execution:
 
 ```
 for _ in 0..N {
-  env = env.parent
+  env = env_stack.pop()
 }
 ```
 
@@ -222,11 +227,12 @@ if flag_true then IP = T
 
 - `N` at `[11..0]`
 
-Calls a function passing `N` parameters.  This instruction should normally be preceded by `newenv N`.
+Calls a function passing `N` parameters.
 
 Execution:
 
 ```
+[args] = for _ in 0..N { val_stack.pop() }
 func = val_stack.pop()
 match func {
   native function => {
@@ -235,11 +241,14 @@ match func {
   }
   AST closure => {
     check N == func.num_param
-    tmp = func.run_function_body(env)
+    call_env = make_new_env(func.env, [args])
+    tmp = func.run_function_body(call_env)
     val_stack.push(tmp)
   }
   bytecode closure => {
     check N == func.num_param
+    env_stack.push(env)
+    env = make_new_env(parent = env, [args])
 	ret_stack.push(IP)
 	IP = func.IP
   }
@@ -254,10 +263,11 @@ Errors if the value being called is not a function or if N is not equal to the n
 
 `ret`
 
-Returns from a function.  This instruction should notmally be preceded by `popenv`.
+Returns from the current function.
 
 Execution:
 
 ```
+env = env_stack.pop()
 IP = ret_stack.pop()
 ```

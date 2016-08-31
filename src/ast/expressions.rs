@@ -125,8 +125,8 @@ impl Expression {
         }
     }
 
-    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
-        println!("Expression::compile(): {:?}", self);
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        //println!("Expression::compile(): {:?}", self);
 
         match *self {
             Expression::Number(ref n, _) => {
@@ -197,7 +197,7 @@ impl Expression {
                               lhs : &Expression,
                               val : &Expression,
                               sym : &Rc<SymTab>,
-                              gen : &mut bytecode::Gen) -> ParseResult<()> {
+                              gen : &mut bytecode::Program) -> ParseResult<()> {
         match *lhs {
             Expression::Ident(ref id, ref loc) => {
                 match sym.get_name(&*id) {
@@ -232,7 +232,7 @@ impl Expression {
         Err(ParseError::new(self.loc().clone(), "assignment to invalid target"))
     }
 
-    pub fn compile_dot(&self, _lhs : &Expression, _rhs : &Expression, _sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+    pub fn compile_dot(&self, _lhs : &Expression, _rhs : &Expression, _sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
         gen.add_comment("TODO: '.'");
         gen.emit_halt();
         Ok(())
@@ -349,7 +349,7 @@ impl FuncCall {
         Ok(exec::FuncCall::new(func.loc(), Box::new(func), args))
     }
     
-    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Gen) -> ParseResult<()> {
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
         try!(self.func.compile(sym, gen));
         for arg in &self.args {
             try!(arg.compile(sym, gen));

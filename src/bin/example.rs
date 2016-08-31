@@ -33,4 +33,18 @@ fn main() {
         println!("{}", e);
         return;
     }
+
+    //bleep.dump_env();
+    //bleep.dump_funcs();
+    
+    //let start = time::precise_time_ns();
+
+    let args = script_args.iter().map(|a| Value::new_string(a)).collect::<Vec<Value>>();
+    match bleep.call_function("main", &args) {
+        Ok(v) => println!("-> {}", v),
+        Err(e) => println!("{}", e),
+    }
+    
+    //let end = time::precise_time_ns();
+    //println!("time: {}ms", (end - start) / 1_000_000);
 }
