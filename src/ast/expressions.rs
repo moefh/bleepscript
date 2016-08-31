@@ -161,26 +161,17 @@ impl Expression {
                 gen.emit_halt();
             }
             
-            Expression::Element(_) => {
-                gen.add_comment("TODO: element access");
-                gen.emit_halt();
-            }
+            Expression::Element(ref e) => try!(e.compile(sym, gen)),
             
             Expression::BinaryOp(ref op) => {
                 match &**op.op {
                     "=" => try!(self.compile_assignment(&*op.left, &*op.right, sym, gen)),
                     "." => try!(self.compile_dot(&*op.left, &*op.right, sym, gen)),
-                    _ => {
-                        gen.add_comment("TODO: binary op");
-                        gen.emit_halt();
-                    }
+                    _ => try!(op.compile(sym, gen)),
                 }
             }
 
-            Expression::PrefixOp(_) => {
-                gen.add_comment("TODO: prefix op");
-                gen.emit_halt();
-            }
+            Expression::PrefixOp(ref op) => try!(op.compile(sym, gen)),
             
             Expression::FuncDef(_) => {
                 gen.add_comment("TODO: func def");
@@ -319,6 +310,14 @@ impl Element {
         let i = try!(self.index.analyze(sym, st));
         Ok(exec::Element::new(self.loc.clone(), Box::new(c), Box::new(i)))
     }
+
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        try!(self.container.compile(sym, gen));
+        try!(self.index.compile(sym, gen));
+        gen.emit_getelem();
+        Ok(())
+    }
+
 }
 
 // =========================================================
@@ -392,6 +391,22 @@ impl BinaryOp {
         let right = try!(self.right.analyze(sym, st));
         Ok(exec::BinaryOp::new(self.loc.clone(), vi, ei, Box::new(left), Box::new(right)))
     }
+    
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        let (vi, ei) = match sym.get_name(&*self.op) {
+            Some((vi, ei)) => (vi, ei),
+            None => return Err(ParseError::new(self.loc.clone(), &format!("operator doesn't exist: '{}'", self.op)))
+        };
+        gen.add_comment(&*self.op);
+        gen.emit_getvar(vi as u16, ei as u16);
+        
+        try!(self.left.compile(sym, gen));
+        try!(self.right.compile(sym, gen));
+
+        gen.emit_call(2);
+        Ok(())
+    }
+
 }
 
 // =========================================================
@@ -421,6 +436,20 @@ impl PrefixOp {
         };
         let arg = try!(self.arg.analyze(sym, st));
         Ok(exec::PrefixOp::new(self.loc.clone(), vi, ei, Box::new(arg)))
+    }
+
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        let (vi, ei) = match sym.get_name(&*self.op) {
+            Some((vi, ei)) => (vi, ei),
+            None => return Err(ParseError::new(self.loc.clone(), &format!("operator doesn't exist: '{}'", self.op)))
+        };
+        gen.add_comment(&*self.op);
+        gen.emit_getvar(vi as u16, ei as u16);
+        
+        try!(self.arg.compile(sym, gen));
+
+        gen.emit_call(1);
+        Ok(())
     }
 
 }

@@ -50,6 +50,10 @@ impl Value {
         Value::NativeFunc(NativeFunc::new(f))
     }
     
+    pub fn new_vector(vec : &[Value]) -> Value {
+        Value::Vec(Rc::new(RefCell::new(vec.to_owned())))
+    }
+    
     pub fn get_element(&self, index : &Value, loc : &SrcLoc) -> Result<Value, RunError> {
         match *self {
             Value::Map(ref m) => match m.get(index) {

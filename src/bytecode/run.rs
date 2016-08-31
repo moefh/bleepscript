@@ -72,7 +72,7 @@ impl Run {
     }
     
     fn exec_instr(&mut self, n : usize, instr : &[u32], literals : &[Value]) -> Result<(), RunError> {
-        let loc = SrcLoc::new("bytecode", 0, 0);
+        let loc = SrcLoc::new("(bytecode)", 0, 0);
 
         for _ in 0..n {
             if self.ip == INVALID_ADDR {
@@ -164,16 +164,30 @@ impl Run {
                     }
                     self.ip += 1;
                 }
-                
+
+                OP_GETELEM => {
+                    println!("getelem");
+                    let index = match self.val_stack.pop() {
+                        Some(i) => i,
+                        None => return Err(RunError::new_panic(None, "getelem with not enough values in the val stack")),
+                    };
+                    let container = match self.val_stack.pop() {
+                        Some(i) => i,
+                        None => return Err(RunError::new_panic(None, "getelem with not enough values in the val stack")),
+                    };
+                    let val = try!(container.get_element(&index, &loc));
+                    self.val_stack.push(val);
+                    self.ip += 1;
+                }
+                                
                 OP_CALL => {
                     println!("call");
                     let n_args = instr::d_op_12(instr) as usize;
                     if self.val_stack.len() < n_args + 1 {
                         return Err(RunError::new_panic(None, "call with not enough values in the val stack"));
                     }
-                    //let args = self.val_stack.drain(start..).collect::<Vec<Value>>();
-                    let args_pos = self.val_stack.len() - n_args;
-                    let func_pos = args_pos - 1;
+                    let func_pos = self.val_stack.len() - (n_args + 1);
+                    let args_pos = func_pos + 1;
                     let ret = match self.val_stack[func_pos] {
                         Value::BCClosure(ref c) => {
                             if c.num_params != n_args {

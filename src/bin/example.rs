@@ -15,7 +15,6 @@ fn test_function(args : &[Value], _env : &Rc<Env>) -> Result<Value,RunError> {
 
 fn main() {
     let mut args = env::args();
-    
     args.next();
     let script_filename = match args.next() {
         Some(f) => f,
@@ -24,8 +23,8 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let script_args = args.collect::<Vec<String>>();
-    
+    //let script_args = args.collect::<Vec<String>>();
+
     let mut bleep = Bleep::new();
     bleep.set_var("test_function", Value::new_native_func(test_function));
 
@@ -39,7 +38,8 @@ fn main() {
     
     //let start = time::precise_time_ns();
 
-    let args = script_args.iter().map(|a| Value::new_string(a)).collect::<Vec<Value>>();
+    //let args = script_args.iter().map(|a| Value::new_string(a)).collect::<Vec<Value>>();
+    let args = [Value::new_vector(&[Value::Number(42.0), Value::Number(19.0)])];
     match bleep.call_function("main", &args) {
         Ok(v) => println!("-> {}", v),
         Err(e) => println!("{}", e),

@@ -68,6 +68,11 @@ impl Program {
         (self.instr.len() - 1) as Addr
     }
 
+    pub fn emit_getelem(&mut self) -> Addr {
+        self.instr.push(instr::i_op(OP_GETELEM));
+        (self.instr.len() - 1) as Addr
+    }
+
     pub fn emit_setelem(&mut self) -> Addr {
         self.instr.push(instr::i_op(OP_SETELEM));
         (self.instr.len() - 1) as Addr
@@ -126,6 +131,8 @@ impl Program {
 
                 OP_GETVAR  => print!("getvar     {}, {}", instr::d_op_12_12(instr).0, instr::d_op_12_12(instr).1),
                 OP_SETVAR  => print!("setvar     {}, {}", instr::d_op_12_12(instr).0, instr::d_op_12_12(instr).1),
+
+                OP_GETELEM => print!("getelem    "),
                 OP_SETELEM => print!("setelem    "),
                 OP_PUSHLIT => print!("pushlit    {}", instr::d_op_26(instr)),
 
