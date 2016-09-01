@@ -143,6 +143,10 @@ impl Program {
         }
     }
 
+    pub fn fix_newenv(&mut self, instr_addr : Addr, n_vals : u16, n_total : u16) {
+        self.instr[instr_addr as usize] = instr::f_op_12_12(self.instr[instr_addr as usize], n_vals, n_total);
+    }
+
     pub fn fix_jump(&mut self, instr_addr : Addr, target_addr : Addr) {
         self.instr[instr_addr as usize] = instr::f_op_26(self.instr[instr_addr as usize], target_addr);
     }
@@ -151,8 +155,8 @@ impl Program {
         self.instr.push(instr::c_op_26(OP_HALT, 0x3ff_ffff));
     }
 
-    pub fn emit_newenv(&mut self, n_params : u16) {
-        self.instr.push(instr::c_op_12(OP_NEWENV, n_params));
+    pub fn emit_newenv(&mut self, n_params : u16, n_total : u16) {
+        self.instr.push(instr::c_op_12_12(OP_NEWENV, n_params, n_total));
     }
 
     pub fn emit_popenv(&mut self, n_envs : u16) {
@@ -220,7 +224,7 @@ impl Program {
             match (instr>>26) as u8 {
                 OP_HALT    => print!("halt       "),
 
-                OP_NEWENV  => print!("newenv     {}", instr::d_op_12(instr)),
+                OP_NEWENV  => print!("newenv     {}, {}", instr::d_op_12_12(instr).0, instr::d_op_12_12(instr).1),
                 OP_POPENV  => print!("popenv     {}", instr::d_op_12(instr)),
 
                 OP_GETVAR  => print!("getvar     {}, {}", instr::d_op_12_12(instr).0, instr::d_op_12_12(instr).1),

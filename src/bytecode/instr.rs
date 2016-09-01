@@ -43,7 +43,7 @@ pub fn _f_op_12(instr : u32, t : u16) -> u32 {
     (instr & 0xfc00_0000) | ((t as u32) & 0x0fff)
 }
 
-pub fn _f_op_12_12(instr : u32, t1 : u16, t2 : u16) -> u32 {
+pub fn f_op_12_12(instr : u32, t1 : u16, t2 : u16) -> u32 {
     (instr & 0xfc00_0000) | (((t1 as u32) & 0x0fff) << 12) | ((t2 as u32) & 0x0fff)
 }
 

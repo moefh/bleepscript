@@ -68,18 +68,21 @@ present), and some pseudocode that describes what the instruction is supposed to
 
 ### newenv
 
-`newenv N`
+`newenv N T`
 
-- `N` at `[11..0]`
+- `N` at `[23..12]`
+- `T` at `[11..0]`
 
-Pops `N` values from the value stack and creates a new environment with them.
+Pops `N` values from the value stack and creates a new environment with `T` values.
+The first `N` values will be the ones popped from the stack, the rest will be
+`Value::Null`.
 
 Execution:
 
 ```
 [tmp] = for i in 1..N { val_stack.pop() }
 env_stack.push(env);
-env = make_new_env(parent = env, [tmp])
+env = make_new_env(parent = env, [tmp, ...])
 ```
     
 

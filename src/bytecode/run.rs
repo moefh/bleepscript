@@ -119,12 +119,13 @@ impl Run {
                 
                 OP_NEWENV => {
                     debugln!("newenv");
-                    let n_args = instr::d_op_12(instr) as usize;
+                    let (n_args, n_total) = instr::d_op_12_12(instr);
+                    let n_args = n_args as usize;
                     let start = self.val_stack.len() - n_args;
                     {
                         let args = &self.val_stack[start..];
                         self.env_stack.push(self.env.clone());
-                        self.env = Rc::new(Env::new(self.env.clone(), args));
+                        self.env = Rc::new(Env::new_partial(self.env.clone(), args, n_total as usize));
                     }
                     self.val_stack.drain(start..);
                     self.ip += 1;

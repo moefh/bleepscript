@@ -138,8 +138,9 @@ impl Block {
     }
     
     pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
-        let mut num_envs : u32 = 0;
         let mut cur_sym = sym.clone();
+        let mut num_env_vars = 0;
+        let mut fix_newenv_addr = 0;
         
         for stmt in &self.stmts {
             match *stmt {
@@ -152,20 +153,30 @@ impl Block {
                             gen.emit_pushlit(index);
                         }
                     }
-                    cur_sym = Rc::new(SymTab::new(cur_sym.clone(), &[decl.var.clone()]));
-                    gen.inc_env_level(1);
-                    num_envs += 1;
-                    gen.add_comment(&format!("var {} = ...", &*decl.var));
-                    gen.emit_newenv(1);
+                    if num_env_vars == 0 {
+                        cur_sym = Rc::new(SymTab::new(cur_sym.clone(), &[decl.var.clone()]));
+                        gen.inc_env_level(1);
+                        fix_newenv_addr = gen.addr();
+                        gen.add_comment(&format!("var {} = ...", &*decl.var));
+                        gen.emit_newenv(1, 1);
+                    } else {
+                        let vi = cur_sym.add_name(&*decl.var);
+                        gen.add_comment(&format!("var {} = ...", &*decl.var));
+                        gen.emit_setvar(vi as u16, 0);
+                    }
+                    num_env_vars += 1;
                 }
                 
                 _ => try!(stmt.compile(&cur_sym, gen)),
             }
         }
         
-        if num_envs > 0 {
-            try!(gen.dec_env_level(num_envs));
-            gen.emit_popenv(num_envs as u16);
+        if num_env_vars > 1 {
+            gen.fix_newenv(fix_newenv_addr, 1, num_env_vars);
+        }
+        if num_env_vars > 0 {
+            try!(gen.dec_env_level(1));
+            gen.emit_popenv(1);
         }
         Ok(())
     }

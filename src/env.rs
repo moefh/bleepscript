@@ -30,6 +30,17 @@ impl Env {
         }
     }
     
+    pub fn new_partial(parent : Rc<Env>, vals : &[Value], total_size : usize) -> Env {
+        let mut vals = vals.to_vec();
+        for _ in 0..(total_size-vals.len()) {
+            vals.push(Value::Null);
+        }
+        Env {
+            parent : Some(parent),
+            vals : RefCell::new(vals),
+        }
+    }
+    
     pub fn size(&self) -> usize {
         self.vals.borrow().len()
     }
