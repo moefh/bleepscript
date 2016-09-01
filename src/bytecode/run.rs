@@ -64,13 +64,14 @@ impl Run {
         if closure.num_params != args.len() {
             return Err(RunError::new_script(loc.clone(), &format!("invalid number of arguments passed (expected {}, got {})", closure.num_params, args.len())));
         }
+        let loc = SrcLoc::new("(bytecode)", 0, 0);
         
         self.env_stack.push(closure.env.clone());  // push dummy env to keep 'ret' happy
         self.env = Rc::new(Env::new(closure.env.clone(), args));
         self.ret_stack.push(INVALID_ADDR);
         self.ip = closure.addr;
         while self.ip != INVALID_ADDR {
-            try!(self.exec_instr(100_000, instr, literals));
+            try!(self.exec_instr(100_000, instr, literals, &loc));
         }
 
         // sanity checks        
@@ -90,9 +91,7 @@ impl Run {
         }
     }
     
-    fn exec_instr(&mut self, n : usize, instr : &[u32], literals : &[Value]) -> Result<(), RunError> {
-        let loc = SrcLoc::new("(bytecode)", 0, 0);
-
+    fn exec_instr(&mut self, n : usize, instr : &[u32], literals : &[Value], loc : &SrcLoc) -> Result<(), RunError> {
         for _ in 0..n {
             if self.ip == INVALID_ADDR {
                 break;

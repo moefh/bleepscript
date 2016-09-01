@@ -3,9 +3,21 @@
 A toy script language written in Rust, inspired by SICP's
 [metacircular evaluator](https://mitpress.mit.edu/sicp/full-text/sicp/book/node76.html).
 
-## Loading and Executing a Script
+Run the examples:
+
+```text
+cargo run scripts/main.tst "Hello, world!"
+
+cargo run scripts/draw_mandelbrot.tst
+```
+
+## Loading and Executing a Script from Rust
 
 ```Rust
+extern crate bleepscript;
+
+use bleepscript::Bleep;
+
 let mut bleep = Bleep::new();
 
 bleep.load_file("script_file.bs").unwrap();
@@ -61,6 +73,19 @@ function test() {
     error("this will not happen");
 }
 ```
+
+## Bytecode Compiler/Interpreter
+
+Running from the AST works, but there's also an experimental bytecode compiler and interpreter.
+It currently doesn't support maps or vectors, and is slower than AST execution.
+
+To use see it in action, run
+
+`cargo run -- --bytecode scripts/draw_mandelbrot.tst`
+
+To use it from Rust, just use `Bleep::compile_file()` instead of `Bleep::load_file()`. See the code
+at `src/bin/main.rs` for more details.
+
 
 ## Design Limitations
 

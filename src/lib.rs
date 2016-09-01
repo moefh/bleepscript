@@ -35,7 +35,6 @@ mod bytecode;
 
 use std::rc::Rc;
 use std::path;
-use std::collections::HashMap;
 
 pub use self::env::Env;
 pub use self::errors::RunError;
@@ -101,7 +100,7 @@ pub struct Bleep {
     env : Rc<Env>,
     sym_tab : Rc<SymTab>,
     bytecode : bytecode::Program,
-    funcs : HashMap<String, ast::NamedFuncDef>,
+    funcs : Vec<(Rc<String>, Rc<exec::FuncDef>)>,
 }
 
 impl Bleep {
@@ -120,7 +119,7 @@ impl Bleep {
             env : Rc::new(Env::new_global()),
             sym_tab : Rc::new(SymTab::new_global()),
             bytecode : bytecode::Program::new(),
-            funcs : HashMap::new(),
+            funcs : vec![],
         };
         
         bleep.init_env();
@@ -197,7 +196,7 @@ impl Bleep {
             let closure = exec::FuncDef::eval(func.clone(), &self.env);
             self.set_var(&*ast_func.name, closure);
             //println!("{:?}", func);
-            self.funcs.insert((*ast_func.name).clone(), ast_func);
+            self.funcs.push((ast_func.name.clone(), func.clone()));
         }
         Ok(())
     }
@@ -302,7 +301,7 @@ impl Bleep {
     pub fn dump_funcs(&self) {
         println!("--- functions ---------------------------------");
         for func in &self.funcs {
-            println!("{:?}", func);
+            println!("{} = {:?}", func.0, func.1);
             println!("");
         }
         println!("-----------------------------------------------");
