@@ -1,4 +1,6 @@
-//extern crate time;
+#![feature(test)]
+
+extern crate test;
 extern crate bleepscript;
 
 use std::rc::Rc;
@@ -21,7 +23,12 @@ fn main() {
         Some(f) => f,
         None => {
             println!("USAGE: bleep SCRIPT_FILENAME [SCRIPT_ARGS ...]");
-            std::process::exit(1);
+            println!("");
+            println!("Try");
+            println!("");
+            println!("    cargo run scripts/main.tst test");
+            println!("");
+            return;
         }
     };
     let script_args = args.collect::<Vec<String>>();
@@ -47,4 +54,29 @@ fn main() {
     
     //let end = time::precise_time_ns();
     //println!("time: {}ms", (end - start) / 1_000_000);
+}
+
+#[cfg(test)]
+mod bench {
+    use bleepscript::*;
+    use test::Bencher;
+    
+    #[bench]
+    fn a_bytecode(b: &mut Bencher) {
+        b.iter(|| {
+            let mut bleep = Bleep::new();
+            bleep.compile_file("scripts/bench.tst").expect("Error loading script");
+            bleep.call_function("main", &[]).expect("error running function");
+        });
+    }
+
+    #[bench]
+    fn b_ast(b: &mut Bencher) {
+        b.iter(|| {
+            let mut bleep = Bleep::new();
+            bleep.load_file("scripts/bench.tst").expect("Error loading script");
+            bleep.call_function("main", &[]).expect("error running function");
+        });
+    }
+    
 }

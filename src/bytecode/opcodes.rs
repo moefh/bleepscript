@@ -7,9 +7,12 @@ pub const OP_SETVAR  : u8 = 4;
 pub const OP_GETELEM : u8 = 5;
 pub const OP_SETELEM : u8 = 6;
 pub const OP_PUSHLIT : u8 = 7;
-pub const OP_TEST    : u8 = 8;
-pub const OP_JMP     : u8 = 9;
-pub const OP_JT      : u8 = 10;
-pub const OP_CALL    : u8 = 11;
-pub const OP_RET     : u8 = 12;
-pub const OP_POPVAL  : u8 = 13;
+pub const OP_CALL    : u8 = 8;
+pub const OP_RET     : u8 = 9;
+pub const OP_POPVAL  : u8 = 10;
+
+pub const OP_TEST    : u8 = 20;
+
+pub const OP_JMP     : u8 = 32;
+pub const OP_JT      : u8 = 33;
+pub const OP_JF      : u8 = 34;

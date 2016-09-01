@@ -264,8 +264,6 @@ impl Bleep {
             self.set_var(&*func.name, Value::BCClosure(bytecode::Closure::new(addr, n_params, env)));
         }
         
-        self.bytecode.disasm();
-        
         Ok(())
     }
     
@@ -307,6 +305,13 @@ impl Bleep {
             println!("{:?}", func);
             println!("");
         }
+        println!("-----------------------------------------------");
+    }
+    
+    /// Dumps compiled bytecode (used for debugging).
+    pub fn dump_bytecode(&self) {
+        println!("--- bytecode ----------------------------------");
+        self.bytecode.disasm();
         println!("-----------------------------------------------");
     }
 

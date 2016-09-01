@@ -7,7 +7,6 @@ use super::exec;
 use super::bytecode;
 use super::native::NativeFunc;
 use super::env::Env;
-use super::src_loc::SrcLoc;
 use super::RunError;
 
 /// A value of the script language.
@@ -53,30 +52,34 @@ impl Value {
     pub fn new_vector(vec : &[Value]) -> Value {
         Value::Vec(Rc::new(RefCell::new(vec.to_owned())))
     }
+
+    pub fn new_map() -> Value {
+        Value::Map(Rc::new(MapValue::new()))
+    }
     
-    pub fn get_element(&self, index : &Value, loc : &SrcLoc) -> Result<Value, RunError> {
+    pub fn get_element(&self, index : &Value) -> Result<Value, RunError> {
         match *self {
             Value::Map(ref m) => match m.get(index) {
                 Some(v) => Ok(v),
-                None => Err(RunError::new_script(loc.clone(), &format!("map doesn't contain key '{}'", index)))
+                None => Err(RunError::new_native_str(&format!("map doesn't contain key '{}'", index)))
             },
 
             Value::Vec(ref v) => {
                 let i = match index.as_i64() {
                     Ok(i) => i as usize,
-                    Err(e) => return Err(e.native_to_script(loc)),
+                    Err(_) => return Err(RunError::new_native_str("trying use a non-numeric index to read a vector element")),
                 };
                 match v.borrow().get(i) {
                     Some(v) => Ok(v.clone()),
-                    None => Err(RunError::new_script(loc.clone(), &format!("vector index out of bounds: {}", index)))
+                    None => Err(RunError::new_native_str(&format!("vector index out of bounds: {}", index)))
                 }
             }
 
-            _ => Err(RunError::new_script(loc.clone(), &format!("trying to read element of non-container object '{}'", self)))
+            _ => Err(RunError::new_native_str(&format!("trying to read element of non-container object '{}'", self)))
         }
     }
 
-    pub fn set_element(&mut self, index : Value, val : Value, loc : &SrcLoc) -> Result<(), RunError> {
+    pub fn set_element(&mut self, index : Value, val : Value) -> Result<(), RunError> {
         match *self {
             Value::Map(ref mut m) => {
                 m.set(index, val);
@@ -86,7 +89,7 @@ impl Value {
             Value::Vec(ref mut v) => {
                 let i = match index.as_i64() {
                     Ok(i) => i as usize,
-                    Err(e) => return Err(e.native_to_script(loc)),
+                    Err(e) => return Err(e),
                 };
                 let mut v = v.borrow_mut();
                 if i < v.len() {
@@ -94,12 +97,12 @@ impl Value {
                 } else if i == v.len() {
                     v.push(val.clone());
                 } else {
-                    return Err(RunError::new_script(loc.clone(), &format!("vector index out of bounds: {}", index)))
+                    return Err(RunError::new_native_str(&format!("vector index out of bounds: {}", index)))
                 }
                 Ok(())
             }
 
-            _ => Err(RunError::new_script(loc.clone(), &format!("trying to assign to element of non-container object '{}'", self)))
+            _ => Err(RunError::new_native_str(&format!("trying to assign to element of non-container object '{}'", self)))
         }
     }
     

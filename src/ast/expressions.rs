@@ -151,16 +151,6 @@ impl Expression {
                 };
             }
 
-            Expression::Vec(_) => {
-                gen.add_comment("TODO: vec literal");
-                gen.emit_halt();
-            }
-
-            Expression::Map(_) => {
-                gen.add_comment("TODO: map literal");
-                gen.emit_halt();
-            }
-            
             Expression::Element(ref e) => try!(e.compile(sym, gen)),
             
             Expression::BinaryOp(ref op) => {
@@ -173,12 +163,23 @@ impl Expression {
 
             Expression::PrefixOp(ref op) => try!(op.compile(sym, gen)),
             
+            Expression::FuncCall(ref f) => try!(f.compile(sym, gen)),
+
             Expression::FuncDef(_) => {
                 gen.add_comment("TODO: func def");
                 gen.emit_halt();
             }
             
-            Expression::FuncCall(ref f) => try!(f.compile(sym, gen)),
+            Expression::Vec(_) => {
+                gen.add_comment("TODO: vec literal");
+                gen.emit_halt();
+            }
+
+            Expression::Map(_) => {
+                gen.add_comment("TODO: map literal");
+                gen.emit_halt();
+            }
+            
         }
         
         Ok(())
@@ -223,10 +224,19 @@ impl Expression {
         Err(ParseError::new(self.loc().clone(), "assignment to invalid target"))
     }
 
-    pub fn compile_dot(&self, _lhs : &Expression, _rhs : &Expression, _sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
-        gen.add_comment("TODO: '.'");
-        gen.emit_halt();
-        Ok(())
+    pub fn compile_dot(&self, container : &Expression, index : &Expression, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        match *index {
+            Expression::Ident(ref id, _) => {
+                try!(container.compile(sym, gen));
+                let lit = gen.add_literal(Value::String(id.clone()));
+                gen.add_comment(&*id);
+                gen.emit_pushlit(lit);
+                gen.emit_getelem();
+                Ok(())
+            }
+            
+            _ => Err(ParseError::new(index.loc().clone(), "attribute must be an identifier")),
+        }
     }
 
 }

@@ -44,10 +44,7 @@ impl Statement {
 
     pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
         match *self {
-            Statement::Empty => {
-                gen.add_comment("empty statement");
-                gen.emit_halt();
-            }
+            Statement::Empty => {}
             
             Statement::VarDecl(ref d) => {
                 return Err(ParseError::new(d.loc.clone(), "internal error: trying to parse variable declaration"));
@@ -61,24 +58,28 @@ impl Statement {
             
             Statement::Block(ref b) => try!(b.compile(sym, gen)),
 
-            Statement::If(_) => {
-                gen.add_comment("TODO: if");
-                gen.emit_halt();
-            }
+            Statement::If(ref i) => try!(i.compile(sym, gen)),
             
-            Statement::While(_) => {
-                gen.add_comment("TODO: while");
-                gen.emit_halt();
-            }
+            Statement::While(ref w) => try!(w.compile(sym, gen)),
             
-            Statement::Return(_) => {
-                gen.add_comment("TODO: return");
-                gen.emit_halt();
-            }
+            Statement::Return(ref r) => try!(r.compile(sym, gen)),
             
-            Statement::Break(_) => {
-                gen.add_comment("TODO: break");
-                gen.emit_halt();
+            Statement::Break(ref loc) => {
+                // pop envs to match 'while' level
+                match gen.get_while_env_level() {
+                    Ok(n_envs) => {
+                        if n_envs > 0 {
+                            gen.emit_popenv(n_envs as u16);
+                        }
+                    }
+                    Err(_) => return Err(ParseError::new(loc.clone(), "'break' not allowed here")),
+                }
+
+                // jump to end of while
+                let addr = gen.addr();
+                gen.add_comment("break");
+                gen.emit_jmp(bytecode::INVALID_ADDR);
+                try!(gen.add_break_fixup(addr));
             }
         }
         Ok(())
@@ -137,7 +138,7 @@ impl Block {
     }
     
     pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
-        let mut num_envs = 0;
+        let mut num_envs : u32 = 0;
         let mut cur_sym = sym.clone();
         
         for stmt in &self.stmts {
@@ -152,6 +153,7 @@ impl Block {
                         }
                     }
                     cur_sym = Rc::new(SymTab::new(cur_sym.clone(), &[decl.var.clone()]));
+                    gen.inc_env_level(1);
                     num_envs += 1;
                     gen.add_comment(&format!("var {} = ...", &*decl.var));
                     gen.emit_newenv(1);
@@ -162,7 +164,8 @@ impl Block {
         }
         
         if num_envs > 0 {
-            gen.emit_popenv(num_envs);
+            try!(gen.dec_env_level(num_envs));
+            gen.emit_popenv(num_envs as u16);
         }
         Ok(())
     }
@@ -197,6 +200,37 @@ impl IfStatement {
         };
         Ok(exec::IfStatement::new(self.loc.clone(), test, true_stmt, false_stmt))
     }
+    
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        // test and skip true
+        try!(self.test.compile(sym, gen));
+        gen.add_comment("if");
+        gen.add_comment("if test");
+        gen.emit_test();
+        let jmp_skip_true = gen.addr();
+        gen.add_comment("skip true statement");
+        gen.emit_jf(bytecode::INVALID_ADDR);
+        
+        // true statement
+        try!(self.true_stmt.compile(sym, gen));
+
+        if let Some(ref false_stmt) = self.false_stmt {
+            let jmp_skip_false = gen.addr();
+            gen.add_comment("skip false statement");
+            gen.emit_jmp(bytecode::INVALID_ADDR);
+            
+            let addr_past_true = gen.addr();
+            gen.fix_jump(jmp_skip_true, addr_past_true);
+
+            try!(false_stmt.compile(sym, gen));
+            let end = gen.addr();
+            gen.fix_jump(jmp_skip_false, end);
+        } else {
+            let addr_past_true = gen.addr();
+            gen.fix_jump(jmp_skip_true, addr_past_true);
+        }        
+        Ok(())
+    }
 }
 
 // =========================================================
@@ -226,6 +260,29 @@ impl WhileStatement {
         
         Ok(exec::WhileStatement::new(self.loc.clone(), test, stmt))
     }
+
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        gen.new_while_context();
+
+        // test and skip
+        let start = gen.addr();
+        try!(self.test.compile(sym, gen));
+        gen.add_comment("while");
+        gen.emit_test();
+        let jmp = gen.addr();
+        gen.emit_jf(bytecode::INVALID_ADDR);
+        
+        // statement and jump back
+        try!(self.stmt.compile(sym, gen));
+        gen.emit_jmp(start);
+        let end = gen.addr();
+        
+        gen.fix_jump(jmp, end);
+        try!(gen.close_while_context(end));
+
+        Ok(())
+    }
+    
 }
 
 // =========================================================
@@ -249,6 +306,25 @@ impl ReturnStatement {
             None => None,
         };
         Ok(exec::ReturnStatement::new(self.loc.clone(), expr))
+    }
+
+    pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
+        match self.expr {
+            Some(ref e) => try!(e.compile(sym, gen)),
+            None => gen.emit_pushlit(0),   // null
+        }
+
+        gen.add_comment("return");
+        let env_level = gen.get_env_level();
+        gen.emit_popenv(env_level as u16);
+        
+        gen.add_comment("return");
+        let addr = gen.addr();
+        gen.emit_jmp(bytecode::INVALID_ADDR);
+        if gen.add_return_fixup(addr).is_err() {
+            return Err(ParseError::new(self.loc.clone(), "'return' not allowed here"));
+        }
+        Ok(())
     }
 }
 
@@ -301,6 +377,9 @@ impl FuncDef {
     }
     
     pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<(u32,usize)> {
+        gen.set_env_level(0);
+        gen.new_func_context();
+
         let addr = gen.addr();
         let new_sym = Rc::new(SymTab::new(sym.clone(), &self.params));
 
@@ -308,7 +387,12 @@ impl FuncDef {
 
         gen.add_comment("auto return null");
         gen.emit_pushlit(0);
+        
+        let end = gen.addr();
         gen.emit_ret();
+
+        try!(gen.close_func_context(end));
+
         Ok((addr, self.params.len()))
     }
 }

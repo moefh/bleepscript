@@ -130,7 +130,10 @@ impl Element {
     pub fn eval(&self, env : &Rc<Env>) -> Result<Value, RunError> {
         let container = try!(self.container.eval(env));
         let index = try!(self.index.eval(env));
-        container.get_element(&index, &self.loc)
+        match container.get_element(&index) {
+            Ok(val) => Ok(val),
+            Err(e) => Err(e.native_to_script(&self.loc)),
+        }
     }
 }
 
@@ -186,8 +189,10 @@ impl ElemAssign {
         let mut c = try!(self.container.eval(env));
         let index = try!(self.index.eval(env));
         let val = try!(self.val.eval(env));
-        try!(c.set_element(index, val.clone(), &self.loc));
-        Ok(val)
+        match c.set_element(index, val.clone()) {
+            Ok(_) => Ok(val),
+            Err(e) => Err(e.native_to_script(&self.loc)),
+        }
     }
 }
 

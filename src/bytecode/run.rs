@@ -9,7 +9,26 @@ use super::Closure;
 use super::instr;
 use super::super::exec;
 
-const INVALID_ADDR : u32 = (-1i32) as u32;
+use super::INVALID_ADDR;
+
+// disable debug:
+macro_rules! debugln {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($args:tt)*) => {};
+}
+
+/*
+// enable debug:
+macro_rules! debugln {
+    ($fmt:expr) => {
+        println!($fmt)
+    };
+    
+    ($fmt:expr, $($args:tt)*) => {
+        println!($fmt, $($args)*)
+    };
+}
+*/
 
 pub struct Run {
     ip : u32,
@@ -32,7 +51,7 @@ impl Run {
         }
     }
     
-    pub fn reset(&mut self, env : Rc<Env>) {
+    pub fn _reset(&mut self, env : Rc<Env>) {
         self.env = env;
         self.ip = 0;
         self.env_stack.clear();
@@ -51,18 +70,18 @@ impl Run {
         self.ret_stack.push(INVALID_ADDR);
         self.ip = closure.addr;
         while self.ip != INVALID_ADDR {
-            try!(self.exec_instr(1000, instr, literals));
+            try!(self.exec_instr(100_000, instr, literals));
         }
 
         // sanity checks        
         if self.val_stack.len() != 1 {
-            println!("!!!WARNING!!! bytecode ended with {} values on the val stack", self.val_stack.len());
+            debugln!("!!!WARNING!!! bytecode ended with {} values on the val stack", self.val_stack.len());
         }
         if self.env_stack.len() != 0 {
-            println!("!!!WARNING!!! bytecode ended with {} values on the env stack", self.env_stack.len());
+            debugln!("!!!WARNING!!! bytecode ended with {} values on the env stack", self.env_stack.len());
         }
         if self.ret_stack.len() != 0 {
-            println!("!!!WARNING!!! bytecode ended with {} values on the ret stack", self.ret_stack.len());
+            debugln!("!!!WARNING!!! bytecode ended with {} values on the ret stack", self.ret_stack.len());
         }
         
         match self.val_stack.pop() {
@@ -79,37 +98,41 @@ impl Run {
                 break;
             }
             
-            println!("-> exec instr at {:08x}", self.ip);
+            debugln!("-> exec instr at {:08x}", self.ip);
             let instr = instr[self.ip as usize];
-            println!("  -> instr is {:08x}", instr);
+            debugln!("  -> instr is {:08x}", instr);
             let op = (instr >> 26) as u8;
-            println!("  -> op is {}", op);
+            debugln!("  -> op is {}", op);
             match op {
                 OP_HALT => {
-                    println!("halted at {:08x}\n", self.ip);
+                    debugln!("halt");
+                    println!("halting at {:08x}", self.ip);
                     self.ip = INVALID_ADDR;
                     break;
                 }
                 
                 OP_PUSHLIT => {
-                    println!("pushlit");
+                    debugln!("pushlit");
                     let index = instr::d_op_26(instr);
                     self.val_stack.push(literals[index as usize].clone());
                     self.ip += 1;
                 }
                 
                 OP_NEWENV => {
-                    println!("newenv");
+                    debugln!("newenv");
                     let n_args = instr::d_op_12(instr) as usize;
                     let start = self.val_stack.len() - n_args;
-                    let args = self.val_stack.drain(start..).collect::<Vec<Value>>();
-                    self.env_stack.push(self.env.clone());
-                    self.env = Rc::new(Env::new(self.env.clone(), &args));
+                    {
+                        let args = &self.val_stack[start..];
+                        self.env_stack.push(self.env.clone());
+                        self.env = Rc::new(Env::new(self.env.clone(), args));
+                    }
+                    self.val_stack.drain(start..);
                     self.ip += 1;
                 }
 
                 OP_POPENV => {
-                    println!("popenv");
+                    debugln!("popenv");
                     let n_envs = instr::d_op_12(instr) as usize;
                     for _ in 0..n_envs {
                         self.env = match self.env_stack.pop() {
@@ -121,7 +144,7 @@ impl Run {
                 }
                 
                 OP_POPVAL => {
-                    println!("popval");
+                    debugln!("popval");
                     let n_vals = instr::d_op_12(instr) as usize;
                     for _ in 0..n_vals {
                         match self.val_stack.pop() {
@@ -133,12 +156,12 @@ impl Run {
                 }
 
                 OP_GETVAR => {
-                    println!("getvar");
+                    debugln!("getvar");
                     let (vi, ei) = instr::d_op_12_12(instr);
                     match self.env.get_value(vi as usize, ei as usize) {
                         Ok(v) => self.val_stack.push(v.clone()),
                         Err(e) => {
-                            println!("{:?}", self.env);
+                            debugln!("{:?}", self.env);
                             return Err(e);
                         }
                     }
@@ -146,19 +169,19 @@ impl Run {
                 }
                 
                 OP_SETVAR => {
-                    println!("setvar");
+                    debugln!("setvar");
                     let (vi, ei) = instr::d_op_12_12(instr);
                     let val = match self.val_stack.pop() {
                         Some(v) => v,
                         None => {
-                            println!("{:?}", self.env);
+                            debugln!("{:?}", self.env);
                             return Err(RunError::new_panic(None, "setvar with empty val stack"))
                         }
                     };
                     match self.env.set_value(vi as usize, ei as usize, val.clone()) {
                         Ok(()) => self.val_stack.push(val),
                         Err(e) => {
-                            println!("{:?}", self.env);
+                            debugln!("{:?}", self.env);
                             return Err(e);
                         }
                     }
@@ -166,7 +189,7 @@ impl Run {
                 }
 
                 OP_GETELEM => {
-                    println!("getelem");
+                    debugln!("getelem");
                     let index = match self.val_stack.pop() {
                         Some(i) => i,
                         None => return Err(RunError::new_panic(None, "getelem with not enough values in the val stack")),
@@ -175,13 +198,13 @@ impl Run {
                         Some(i) => i,
                         None => return Err(RunError::new_panic(None, "getelem with not enough values in the val stack")),
                     };
-                    let val = try!(container.get_element(&index, &loc));
+                    let val = try!(container.get_element(&index));
                     self.val_stack.push(val);
                     self.ip += 1;
                 }
                                 
                 OP_CALL => {
-                    println!("call");
+                    debugln!("call");
                     let n_args = instr::d_op_12(instr) as usize;
                     if self.val_stack.len() < n_args + 1 {
                         return Err(RunError::new_panic(None, "call with not enough values in the val stack"));
@@ -201,9 +224,9 @@ impl Run {
                         }
                         
                         Value::NativeFunc(ref f) => {
-                            println!("--- calling native function -----------------------");
+                            debugln!("--- calling native function -----------------------");
                             let ret = try!(f.call(&self.val_stack[args_pos..], &self.env, &loc));
-                            println!("--- done ------------------------------------------");
+                            debugln!("--- done ------------------------------------------");
                             self.ip += 1;
                             Some(ret)
                         }
@@ -222,7 +245,7 @@ impl Run {
                 }
                 
                 OP_RET => {
-                    println!("ret");
+                    debugln!("ret");
                     self.env = match self.env_stack.pop() {
                         Some(e) => e,
                         None => return Err(RunError::new_panic(None, "ret with empty env stack"))
@@ -233,8 +256,41 @@ impl Run {
                     };
                 }
                 
+                OP_TEST => {
+                    debugln!("test");
+                    let val = match self.val_stack.pop() {
+                        Some(e) => e,
+                        None => return Err(RunError::new_panic(None, "test with empty val stack"))
+                    };
+                    self.flag_true = val.is_true();
+                    self.ip += 1;
+                }
+
+                OP_JMP => {
+                    debugln!("jmp");
+                    self.ip = instr::d_op_26(instr);
+                }
+
+                OP_JT => {
+                    debugln!("jt");
+                    if self.flag_true {
+                        self.ip = instr::d_op_26(instr);
+                    } else {
+                        self.ip += 1;
+                    }
+                }
+
+                OP_JF => {
+                    debugln!("jf");
+                    if ! self.flag_true {
+                        self.ip = instr::d_op_26(instr);
+                    } else {
+                        self.ip += 1;
+                    }
+                }
+                
                 _ => {
-                    println!("unhandled instruction at {:08x}\n", self.ip);
+                    debugln!("unhandled instruction at {:08x}\n", self.ip);
                     self.ip = INVALID_ADDR;
                     break;
                 }

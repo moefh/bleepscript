@@ -4,16 +4,17 @@ use std::cmp;
 use std::rc::Rc;
 
 use super::super::Env;
+use super::Addr;
 
 #[derive(Clone)]
 pub struct Closure {
-    pub addr : u32,
+    pub addr : Addr,
     pub num_params : usize,
     pub env : Rc<Env>,
 }
 
 impl Closure {
-    pub fn new(addr : u32, num_params : usize, env : Rc<Env>) -> Closure {
+    pub fn new(addr : Addr, num_params : usize, env : Rc<Env>) -> Closure {
         Closure {
             addr : addr,
             num_params : num_params,

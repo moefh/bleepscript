@@ -32,6 +32,7 @@ fn main() {
         println!("{}", e);
         return;
     }
+    bleep.dump_bytecode();
 
     //bleep.dump_env();
     //bleep.dump_funcs();
@@ -39,7 +40,10 @@ fn main() {
     //let start = time::precise_time_ns();
 
     //let args = script_args.iter().map(|a| Value::new_string(a)).collect::<Vec<Value>>();
-    let args = [Value::new_vector(&[Value::Number(42.0), Value::Number(19.0)])];
+    //let args = [Value::new_vector(&[Value::Number(42.0), Value::Number(19.0)])];
+    let mut map = Value::new_map();
+    map.set_element(Value::new_string("test"), Value::Number(33.0)).unwrap();
+    let args = [map];
     match bleep.call_function("main", &args) {
         Ok(v) => println!("-> {}", v),
         Err(e) => println!("{}", e),
