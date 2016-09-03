@@ -5,13 +5,13 @@ use super::errors::ReadError;
 use super::{CharReaderOpener, CharReader};
 
 pub struct StringOpener {
-    source : Option<StringReader>
+    source : Option<StringCharReader>
 }
 
 impl StringOpener {
     pub fn for_string(string : &str) -> StringOpener {
         StringOpener {
-            source : Some(StringReader::new(string))
+            source : Some(StringCharReader::from(string))
         }        
     }
 }
@@ -25,7 +25,59 @@ impl CharReaderOpener for StringOpener {
     }
 }
 
-pub struct StringReader {
+/// `CharReader` for `String`s.
+///
+/// When implementing `CharReaderOpener`, if the scripts you're reading are
+/// small enough be stored as `Vec<char>`, then you can simply use a
+/// `StringCharReader`.
+///
+/// # Examples
+///
+/// ```
+/// use std::path;
+/// use std::collections::HashMap;
+/// use bleepscript::{Bleep, CharReaderOpener, StringCharReader, CharReader, ReadError};
+/// 
+/// struct TestOpener {
+///    scripts : HashMap<path::PathBuf, String>,
+/// }
+/// 
+/// impl TestOpener {
+///    pub fn new() -> TestOpener {
+///       let mut scripts = HashMap::new();
+/// 
+///       scripts.insert(path::PathBuf::from("first.txt"),
+///                      String::from(r#"
+///                          include "second.txt"
+///                          function first_func() { printf("Hello\n"); }
+///                      "#));
+/// 
+///       scripts.insert(path::PathBuf::from("second.txt"),
+///                      String::from(r#"
+///                          function second_func() { printf("Hello again\n"); }
+///                      "#));
+///
+///       TestOpener {
+///           scripts : scripts
+///       }
+///    }
+/// }
+/// 
+/// impl CharReaderOpener for TestOpener {
+///    fn open(&mut self, source : &path::Path) -> Result<Box<CharReader>, ReadError> {
+///       match self.scripts.get(source) {
+///           Some(str) => Ok(Box::new(StringCharReader::from(str))),
+///           None => Err(ReadError::GenericError("Not found".to_string())),
+///       }
+///    }
+/// }
+///
+/// let mut bleep = Bleep::new();
+/// bleep.load_user("first.txt", Box::new(TestOpener::new()))
+///      .expect("error loading scripts");
+/// assert!(bleep.get_var("second_func").is_some());
+/// ```
+pub struct StringCharReader {
     source : Vec<char>,
     pos : usize,
     col_num_before_newline : u32,
@@ -34,10 +86,10 @@ pub struct StringReader {
     saved : Vec<char>,
 }
 
-impl StringReader {
-    pub fn new(source : &str) -> StringReader {
-        StringReader {
-            source : source.chars().collect(),
+impl StringCharReader {
+    pub fn new(source : Vec<char>) -> StringCharReader {
+        StringCharReader {
+            source : source,
             saved : vec![],
             pos : 0,
             col_num_before_newline : 0,
@@ -45,7 +97,7 @@ impl StringReader {
             col_num : 1,
         }
     }
-
+    
     fn advance_loc(&mut self, ch : char) {
         if ch == '\n' {
             self.col_num_before_newline = self.col_num;
@@ -66,7 +118,7 @@ impl StringReader {
     }
 }
 
-impl CharReader for StringReader {
+impl CharReader for StringCharReader {
     fn line_num(&self) -> u32 {
         self.line_num
     }
@@ -95,4 +147,16 @@ impl CharReader for StringReader {
         self.saved.push(ch);
     }
     
+}
+
+impl<'a> From<&'a str> for StringCharReader {
+    fn from(s : &'a str) -> StringCharReader {
+        StringCharReader::new(s.chars().collect())
+    }
+}
+
+impl<'a> From<&'a String> for StringCharReader {
+    fn from(s : &'a String) -> StringCharReader {
+        StringCharReader::new(s.chars().collect())
+    }
 }

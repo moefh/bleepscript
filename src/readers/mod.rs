@@ -7,7 +7,7 @@ use std::path;
 
 pub use self::errors::ReadError;
 pub use self::file::FileOpener;
-pub use self::string::StringOpener;
+pub use self::string::{StringOpener, StringCharReader};
 
 pub trait CharReader {
     

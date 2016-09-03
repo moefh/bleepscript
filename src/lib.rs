@@ -40,7 +40,7 @@ pub use self::env::Env;
 pub use self::errors::RunError;
 pub use self::parser::ParseError;
 pub use self::value::Value;
-pub use self::readers::{CharReader, CharReaderOpener, ReadError};
+pub use self::readers::{CharReader, StringCharReader, CharReaderOpener, ReadError};
 
 use self::loader::BleepLoader;
 use self::src_loc::SrcLoc;
