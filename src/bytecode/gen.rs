@@ -183,6 +183,22 @@ impl Program {
         self.instr.push(instr::c_op_26(OP_PUSHLIT, index as u32));
     }
 
+    pub fn emit_add(&mut self) {
+        self.instr.push(instr::c_op(OP_ADD));
+    }
+
+    pub fn emit_sub(&mut self) {
+        self.instr.push(instr::c_op(OP_SUB));
+    }
+
+    pub fn emit_mul(&mut self) {
+        self.instr.push(instr::c_op(OP_MUL));
+    }
+
+    pub fn emit_div(&mut self) {
+        self.instr.push(instr::c_op(OP_DIV));
+    }
+
     pub fn emit_test(&mut self) {
         self.instr.push(instr::c_op(OP_TEST));
     }
@@ -233,6 +249,11 @@ impl Program {
                 OP_GETELEM => print!("getelem    "),
                 OP_SETELEM => print!("setelem    "),
                 OP_PUSHLIT => print!("pushlit    {}", instr::d_op_26(instr)),
+
+                OP_ADD     => print!("add        "),
+                OP_SUB     => print!("sub        "),
+                OP_MUL     => print!("mul        "),
+                OP_DIV     => print!("div        "),
 
                 OP_TEST    => print!("test       "),
                 OP_JMP     => print!("jmp        {:08x}", instr::d_op_26(instr)),

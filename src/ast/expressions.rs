@@ -403,17 +403,34 @@ impl BinaryOp {
     }
     
     pub fn compile(&self, sym : &Rc<SymTab>, gen : &mut bytecode::Program) -> ParseResult<()> {
-        let (vi, ei) = match sym.get_name(&*self.op) {
-            Some((vi, ei)) => (vi, ei),
-            None => return Err(ParseError::new(self.loc.clone(), &format!("operator doesn't exist: '{}'", self.op)))
-        };
-        gen.add_comment(&*self.op);
-        gen.emit_getvar(vi as u16, ei as u16);
+        match &**self.op {
+            "+" | "-" | "*" | "/" => {
+                try!(self.left.compile(sym, gen));
+                try!(self.right.compile(sym, gen));
+                match &**self.op {
+                    "+" => gen.emit_add(),
+                    "-" => gen.emit_sub(),
+                    "*" => gen.emit_mul(),
+                    "/" => gen.emit_div(),
+                    _ => return Err(ParseError::new(self.loc.clone(), &format!("internal error: unhandled operator '{}'", self.op)))
+                }
+            }
+            
+            op => {
+                let (vi, ei) = match sym.get_name(op) {
+                    Some((vi, ei)) => (vi, ei),
+                    None => return Err(ParseError::new(self.loc.clone(), &format!("operator doesn't exist: '{}'", self.op)))
+                };
+                gen.add_comment(op);
+                gen.emit_getvar(vi as u16, ei as u16);
+                
+                try!(self.left.compile(sym, gen));
+                try!(self.right.compile(sym, gen));
         
-        try!(self.left.compile(sym, gen));
-        try!(self.right.compile(sym, gen));
-
-        gen.emit_call(2);
+                gen.emit_call(2);
+            }
+        }
+        
         Ok(())
     }
 

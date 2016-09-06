@@ -8,6 +8,7 @@ use super::opcodes::*;
 use super::Closure;
 use super::instr;
 use super::super::exec;
+use super::super::native;
 
 use super::INVALID_ADDR;
 
@@ -97,6 +98,7 @@ impl Run {
                 break;
             }
             
+            debugln!("===========================================");
             debugln!("-> exec instr at {:08x}", self.ip);
             let instr = instr[self.ip as usize];
             debugln!("  -> instr is {:08x}", instr);
@@ -289,12 +291,33 @@ impl Run {
                     }
                 }
                 
+                OP_ADD | OP_SUB | OP_MUL | OP_DIV => {
+                    debugln!("arithmetic");
+                    if self.val_stack.len() < 2 {
+                        println!("val stack: {:?}", self.val_stack);
+                        return Err(RunError::new_panic(None, "arithmetic op with not enough values in the val stack"));
+                    }
+                    let args_pos = self.val_stack.len() - 2;
+                    let result = match op {
+                        OP_ADD => native::func_num_add(&self.val_stack[args_pos..], &self.env),
+                        OP_SUB => native::func_num_sub(&self.val_stack[args_pos..], &self.env),
+                        OP_MUL => native::func_num_mul(&self.val_stack[args_pos..], &self.env),
+                        OP_DIV => native::func_num_div(&self.val_stack[args_pos..], &self.env),
+                        _ => return Err(RunError::new_panic(None, "internal error: unhandled arithmetic op")),
+                    };
+                    self.val_stack.drain(args_pos..);
+                    self.val_stack.push(try!(result));
+                    self.ip += 1;
+                }
+                
                 _ => {
-                    debugln!("unhandled instruction at {:08x}\n", self.ip);
+                    println!("ERROR: unhandled instruction at {:08x}", self.ip);
                     self.ip = INVALID_ADDR;
                     break;
                 }
             }
+            
+            debugln!("val stack: {:?}", self.val_stack);
         }
         Ok(())
     }
