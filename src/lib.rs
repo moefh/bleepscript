@@ -40,7 +40,7 @@ pub use self::env::Env;
 pub use self::errors::RunError;
 pub use self::parser::ParseError;
 pub use self::value::Value;
-pub use self::readers::{CharReader, StringCharReader, CharReaderOpener, ReadError};
+pub use self::readers::{InputSource, ReadError};
 
 use self::loader::BleepLoader;
 use self::src_loc::SrcLoc;
@@ -138,7 +138,7 @@ impl Bleep {
     ///
     /// let mut bleep = Bleep::new();
     ///
-    /// match bleep.load_file("myscript.bs") {
+    /// match bleep.load_file("myscript.tst") {
     ///     Ok(()) => println!("Successfully loaded file!"),
     ///     Err(e) => println!("Error loading file:\n{}\n", e),
     /// }
@@ -176,7 +176,7 @@ impl Bleep {
     ///
     /// The source opener will be used to open the given source and any other sources
     /// included by the script. 
-    pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<CharReaderOpener>) -> Result<(), ParseError> {
+    pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<InputSource>) -> Result<(), ParseError> {
         let mut loader = BleepLoader::new();
         try!(loader.load_user(source, source_opener));
         self.load_functions(loader.get_functions())

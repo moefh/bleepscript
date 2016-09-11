@@ -10,7 +10,7 @@ use std::path;
 
 pub use self::errors::ParseError;
 
-use super::readers::CharReaderOpener;
+use super::readers::InputSource;
 use super::src_loc::SrcLoc;
 use self::token::{Token, Keyword};
 use super::ast;
@@ -20,13 +20,13 @@ pub type ParseResult<T> = Result<T, ParseError>;
 pub struct Parser {
     tokens : tokenizer::Tokenizer,
     base_dir : Option<path::PathBuf>,
-    opener : Box<CharReaderOpener>,
+    opener : Box<InputSource>,
     fn_call_prec : i32,
     el_index_prec : i32,
 }
 
 impl Parser {
-    pub fn new(opener : Box<CharReaderOpener>) -> Parser {
+    pub fn new(opener : Box<InputSource>) -> Parser {
         Parser {
             tokens : tokenizer::Tokenizer::new(),
             opener : opener,

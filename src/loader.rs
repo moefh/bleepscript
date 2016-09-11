@@ -34,9 +34,6 @@ impl BleepLoader {
     /// }
     /// ```
     pub fn load_file<P: AsRef<path::Path>>(&mut self, filename : P) -> Result<(), ParseError> {
-        //let mut parser = Parser::new(Box::new(readers::FileOpener));
-        //self.init_parser(&mut parser);
-        //self.funcs.append(&mut try!(parser.parse(filename)));
         self.load_user(filename, Box::new(readers::FileOpener))
     }
 
@@ -58,17 +55,14 @@ impl BleepLoader {
     /// assert_eq!(result, Value::Number(42.0));
     /// ```
     pub fn load_string(&mut self, string : &str) -> Result<(), ParseError> {
-        //let mut parser = Parser::new(Box::new(readers::StringOpener::for_string(string)));
-        //self.init_parser(&mut parser);
-        //self.funcs.append(&mut try!(parser.parse("(string)")));
-        self.load_user("(string)", Box::new(readers::StringOpener::for_string(string)))
+        self.load_user("(string)", Box::new(readers::StringInputOpener::for_string(string)))
     }
 
     /// Loads a script from the given source, using the given source opener.
     ///
     /// The source opener will be used to open the given source and any other sources
     /// included by the script. 
-    pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<readers::CharReaderOpener>) -> Result<(), ParseError> {
+    pub fn load_user<P: AsRef<path::Path>>(&mut self, source : P, source_opener : Box<readers::InputSource>) -> Result<(), ParseError> {
         let mut parser = Parser::new(source_opener);
         self.init_parser(&mut parser);
         self.funcs.append(&mut try!(parser.parse(source)));

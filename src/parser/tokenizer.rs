@@ -5,12 +5,79 @@ use super::token::{Token, Keyword};
 use super::ops;
 use super::{ParseResult, ParseError};
 use super::super::src_loc::SrcLoc;
-use super::super::readers::{CharReader, ReadError};
+use super::super::readers::ReadError;
 
 struct TokenizerInput {
-    chars : Box<CharReader>,
+    chars : Box<Iterator<Item=Result<char,ReadError>>>,
     loc : SrcLoc,
+    col_num_before_newline : u32,
+    line_num : u32,
+    col_num : u32,
+    saved : Vec<char>,
 }
+
+impl TokenizerInput {
+    pub fn new(chars : Box<Iterator<Item=Result<char,ReadError>>>, loc : SrcLoc) -> TokenizerInput {
+        TokenizerInput {
+            chars : chars,
+            loc : loc,
+            saved : vec![],
+            col_num_before_newline : 0,
+            line_num : 1,
+            col_num : 1,
+        }
+    }
+    
+    fn advance_loc(&mut self, ch : char) {
+        if ch == '\n' {
+            self.col_num_before_newline = self.col_num;
+            self.line_num += 1;
+            self.col_num = 1;
+        } else {
+            self.col_num += 1;
+        }
+    }
+
+    fn retreat_loc(&mut self, ch : char) {
+        if ch == '\n' {
+            self.line_num -= 1;
+            self.col_num = self.col_num_before_newline;
+        } else {
+            self.col_num -= 1;
+        }
+    }
+
+    fn line_num(&self) -> u32 {
+        self.line_num
+    }
+    
+    fn col_num(&self) -> u32 {
+        self.col_num
+    }
+    
+    fn getc(&mut self) -> Option<Result<char, ReadError>> {
+        if let Some(ch) = self.saved.pop() {
+            return Some(Ok(ch));
+        }
+        match self.chars.next() {
+            Some(Ok(c)) => {
+                self.advance_loc(c);
+                Some(Ok(c))
+            }
+            
+            //Some(Err(e)) => Err(e),
+            //None => None
+            x => x,
+        }
+    }
+    
+    fn ungetc(&mut self, ch : char) {
+        self.retreat_loc(ch);
+        self.saved.push(ch);
+    }
+    
+}
+
 
 pub struct Tokenizer {
     ops : ops::OpTable,
@@ -43,17 +110,13 @@ impl Tokenizer {
 
     pub fn src_loc(&self) -> SrcLoc {
         match self.inputs.last() {
-            Some(i) => i.loc.new_at(i.chars.line_num(), i.chars.col_num()),
+            Some(i) => i.loc.new_at(i.line_num(), i.col_num()),
             None => self.no_loc.clone(),
         }
     }
 
-    pub fn add_input(&mut self, reader : Box<CharReader>, loc : SrcLoc) -> ParseResult<()> {
-        let input = TokenizerInput {
-            chars : reader,
-            loc : loc,
-        };
-        self.inputs.push(input);
+    pub fn add_input(&mut self, reader : Box<Iterator<Item=Result<char,ReadError>>>, loc : SrcLoc) -> ParseResult<()> {
+        self.inputs.push(TokenizerInput::new(reader, loc));
         Ok(())
     }
     
@@ -63,7 +126,7 @@ impl Tokenizer {
     
     fn ungetc(&mut self, ch : char) {
         if let Some(input) = self.inputs.last_mut() {
-            input.chars.ungetc(ch)
+            input.ungetc(ch)
         }
     }
     
@@ -74,7 +137,7 @@ impl Tokenizer {
             match self.inputs.last_mut() {
                 None => return None,
                 Some(input) => {
-                    match input.chars.getc() {
+                    match input.getc() {
                         None => {},
                         Some(val) => return Some(val)
                     }

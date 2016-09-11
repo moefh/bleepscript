@@ -20,9 +20,9 @@ use bleepscript::Bleep;
 
 let mut bleep = Bleep::new();
 
-bleep.load_file("script_file.bs").unwrap();
+bleep.load_file("script_file.bleep").expect("error loading script");
 
-let ret = bleep.call_function("main", &[]).unwrap();
+let ret = bleep.call_function("main", &[]).expect("error running script");
 println!("script returned {}", ret);
 ```
 
