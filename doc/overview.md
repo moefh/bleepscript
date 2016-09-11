@@ -45,9 +45,10 @@ directory, but the nodes here are optimized for execution.
 
 Each node in the tree has an `eval()` method that evaluates the node in a
 given environment. The environment is passed as a reference-counted object,
-because some nodes need to keep a reference to the environment -- for example,
-when the node for an unnamed function definition is evaluated, it produces a
-`Closure` value that references the given environment.
+because some nodes produce results that need to keep a reference to the
+environment -- for example, when the node for an unnamed function definition
+is evaluated, it produces a `Closure` value that references the given
+environment.
 
 ## Directory `src/bytecode`
 
